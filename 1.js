@@ -8,7 +8,7 @@ async function aaa () {
         .render(
             start,
             {'-q-w-e-': 'RESOLVE!', tester: true, aaa: 'very', bbb: ' CUSTOM DELIMITER WORKS! '},
-            { placeholder: {open: '((', close: '))'}}
+            //{ placeholder: {open: '((', close: '))'}}
                );
     console.log('\n RES:\n', `"${'1'}"`);
 }
