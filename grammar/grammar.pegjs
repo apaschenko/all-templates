@@ -8,12 +8,11 @@
 }
 
 
-
 Start = Layer
 
 Layer = __ nodes:Element* { return nodes }
 
-Element  = RawText / Operator
+Element  = RawText / Placeholder
 
 Open = open: "{{"
 Close = close: "}}"
@@ -21,35 +20,66 @@ Close = close: "}}"
 RawText = txt:(!Open .)+ {return {type: 'text', value: joinAggregated(txt)}}
 
 
-//Arg = (!Close .)+
 Arg = AcuteStringLiteral
-	/ ArgPart (__ "." __ ArgPart)*
+	/ first:ArgPart tail:(__ "." __ tail:ArgPart {return tail;})* {
+    const arr=[first];
+    if (tail) {
+      for (let i of tail) {
+          arr.push(i)
+      };
+    }
+    return arr;
+}
 
-ArgPart = FunctionDescriptor / Item / Lexeme
+ArgPart = FunctionDescriptor / ItemDescriptor / StringLiteral / Relative / Pointer / Lexeme
 
-FunctionDescriptor = Lexeme __ "("__ ListArgs __ ")"
+FunctionDescriptor =
+	fname:(StringLiteral/ItemDescriptor/Lexeme) __ "("__ args: FuncListArgs? __ ")"
+    	{return {type: 'function', value: fname, args: args || []}}
 
-Operator =
+FuncListArgs = first:Arg tail:( __ "," __ arg:Arg {return arg;})*
+	{
+    	const arr = [first];
+        for (let i of tail) {
+        	arr.push(i)
+        };
+        return arr;
+    }
+
+ItemDescriptor = lex:Lexeme __ "[" __ item:Arg __ "]" {return {type: 'item', value: lex, item}}
+
+Relative = CARET __ number:DecimalDigit+ {return {type: 'relative', value: parseInt(number.join(''), 10)}}
+
+Pointer = ASTERISK __ "(" __ args:Arg __ ")" {return {type: 'pointer', args}}
+	/ ASTERISK __ args:Arg                   {return {type: 'pointer', args}}
+
+Lexeme = lex:(! (Close / BLANK / [#,.^()\[\'\"\]*] ) .)+ {return {type: 'lexeme', value: joinAggregated(lex)}}
+
+Placeholder =
 	  op:OperatorIf
     / op:OperatorUnless
     / op:OperatorLongInsert
-    / op:OperatorInsert
+//    / op:OperatorInsert
 
 OperatorIf =
-	Open __ op_type:"IF"i _ arg:Arg __ Comment? Close nested:Layer Open __ "END"i __ Comment? Close
-		{return {op_type: 'if', arg: joinAggregated(arg), nested}}
+	Open __ op_type:"IF"i _ args:Arg __ Comment? Close
+    truePath:Layer? (Open __ "ELSE"i __ Comment? Close)?
+    falsePath: (layer:Layer? Open __ "END"i __ Comment? Close {return layer})
+		{return {op_type: 'if', args/*: joinAggregated(args)*/, truePath, falsePath}}
 
 OperatorUnless =
-	Open __ op_type:"UNLESS"i _ arg:Arg __ Comment? Close nested:Layer Open __ "END"i __ Comment? Close
-    	{return {op_type: 'unless', arg: joinAggregated(arg), nested}}
+	Open __ op_type:"UNLESS"i _ args:Arg __ Comment? Close
+    falsePath: (Layer Open __ "ELSE"i __ Comment? Close)?
+    truePath: (Layer? Open __ "END"i __ Comment? Close)
+    	{return {op_type: 'unless', args/*: joinAggregated(args)*/, truePath, falsePath}}
 
 OperatorLongInsert =
-	Open __ op_type:"=" _ arg:Arg __ Comment? Close
-    	{return {op_type: 'insert', arg: joinAggregated(arg)}}
+	Open __ "=" __ args:Arg __ Comment? Close
+    	{return {op_type: 'insert', args}}
 
 OperatorInsert =
-	Open __ op_type:"a" __ arg:Arg __ Comment? Close
-    	{return {op_type: 'insert', arg: joinAggregated(arg)}}
+	Open __ args:Arg __ Comment? Close
+    	{return {op_type: 'insert', args/*: joinAggregated(args)*/}}
 
 Comment = HASH (!Close .)*
 
@@ -62,7 +92,7 @@ StringLiteral "string"
     }
 
 AcuteStringLiteral = "`" chars:AcuteStringCharacter* "`" {
-      return { type: "regular", value: chars.join("") };
+      return { type: "acute", value: chars.join("") };
     }
 
 DoubleStringCharacter
@@ -102,16 +132,6 @@ NonEscapeCharacter
 EscapeCharacter
   = SingleEscapeCharacter
 
-//HexEscapeSequence
-//  = "x" digits:$(HexDigit HexDigit) {
-//      return String.fromCharCode(parseInt(digits, 16));
-//    }
-
-//UnicodeEscapeSequence
-//  = "u" digits:$(HexDigit HexDigit HexDigit HexDigit) {
-//      return String.fromCharCode(parseInt(digits, 16));
-//    }
-
 SourceCharacter
   = .
 
@@ -135,10 +155,14 @@ HexDigit
   = [0-9a-f]i
 
 __
-  = [\r\n \t\u000C]*
+  = BLANK*
 
 _
-  = [\r\n \t\u000C]+
+  = BLANK+
 
 HASH = "#"
 DOT = "."
+COMMA = ','
+CARET = '^'
+ASTERISK = '*'
+BLANK = [\r\n \t\u000C]
