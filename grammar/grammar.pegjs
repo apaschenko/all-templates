@@ -6,7 +6,7 @@
         }, []).join('');
     }
 
-    const keywords = ['if', 'unless', 'else', 'end', '='];
+    const keywords = ['if', 'unless', 'else', 'end', '=', 'each', 'of', 'with'];
 }
 
 
@@ -22,7 +22,8 @@ Close = close: "}}"
 RawText = txt:(!Open .)+ { return {type: 'text', value: joinAggregated(txt)} }
 
 
-Arg = AcuteStringLiteral
+Arg = InEach
+	/ AcuteStringLiteral
 	/ first:ArgPart tail:(__ "." __ tail:ArgPart {return tail;})* {
     const arr=[first];
     if (tail) {
@@ -33,7 +34,7 @@ Arg = AcuteStringLiteral
     return arr;
 }
 
-ArgPart = FunctionDescriptor / ItemDescriptor / StringLiteral / Relative / Pointer / Lexeme
+ArgPart = FunctionDescriptor / ItemDescriptor / StringLiteral / Relative / Pointer /Lexeme
 
 FunctionDescriptor =
 	fname:(StringLiteral/ItemDescriptor/Lexeme) __ "("__ args: FuncListArgs? __ ")"
@@ -55,6 +56,8 @@ Relative = CARET __ number:DecimalDigit+ {return {type: 'relative', value: parse
 Pointer = ASTERISK __ "(" __ value:Arg __ ")" {return {type: 'pointer', value}}
 	/ ASTERISK __ value:Arg                   {return {type: 'pointer', value}}
 
+InEach = "!" __ arg:Arg {return {type: 'local', value: arg}}
+
 Lexeme = lex:(! (Close / BLANK / [#,.^()\[\'\"\]!*] ) .)+
 	{return {type: 'regular', value: joinAggregated(lex)}}
 
@@ -63,7 +66,7 @@ Placeholder =
     / OperatorUnless
     / OperatorLongInsert
     / OperatorInsert
-    / OperatorFor
+    / OperatorEach
     / CommentPlaceholder
 
 OperatorIf =
@@ -89,7 +92,18 @@ OperatorInsert =
     } __ Comment? Close
     	{return {type: 'insert', value}}
 
-OperatorFor = Open __ "FOR"i _ Lexeme _ "IN"i _ Arg Close Layer? Open __ "END"i __ Close
+OperatorEach = Open
+	__ "EACH"i _ variable:Lexeme
+	_ "OF"i _ object:Arg
+    transform:(_ "TRANSFORM"i  _ arg:Arg {return arg;})?
+    delimiter:(_ "WITH"i _ arg:Arg {return arg;})?
+    __
+    Comment?
+    Close
+	value:Layer?
+    empty:(Open __ "EMPTY" __ Comment? Close layer:Layer {return layer;})?
+    Open __ "END"i __ Comment? Close
+    	{return {type: 'each', variable, object, transform, delimiter, value, empty}}
 
 CommentPlaceholder = Open __ Comment __ Close
 	{return {type: 'comment'};}
