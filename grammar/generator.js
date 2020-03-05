@@ -14,11 +14,11 @@ const fs = require('fs');
 const grammar = fs.readFileSync('./grammar.pegjs');
 //const grammar = fs.readFileSync('./javascript.pegjs');
 
-const parser = peg.generate(grammar.toString(), {output: 'parser'});
+const parser = peg.generate(grammar.toString(), {output: 'source'});
 
-const layer = 'q # {{# comment}} {{unless bbb}}bbb is missing.(( = bbb.ccc ddd.eee.fff( ttt.kkk.mmm, zzz.$$$, wer.der) )){{end}}{{ if tester}} tester is {{aaa}} true tester {{else}}if false {{end}} {{-q-w-e-# asset}}w';
-console.log(parser.parse(layer));
-
+//const layer = 'q # {{# comment}} {{unless bbb}}bbb is missing.(( = bbb.ccc ddd.eee.fff( ttt.kkk.mmm, zzz.$$$, wer.der) )){{end}}{{ if tester}} tester is {{aaa}} true tester {{else}}if false {{end}} {{-q-w-e-# asset}}w';
+const layer  =
+`
 1
 {{= xtr}}
 {{if arg.fff.dro(^1.5.6 . 7 ,2.s ,3(15).^1)."kva" # comment}}
@@ -30,3 +30,7 @@ else-path
 qwerty
 {{ end }}
 bla
+`;
+//         123456789012345
+const l = '{{if f}}{{end}}';
+console.log(parser);

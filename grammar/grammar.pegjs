@@ -5,6 +5,8 @@
             return acc;
         }, []).join('');
     }
+
+    const keywords = ['if', 'unless', 'else', 'end', '='];
 }
 
 
@@ -17,7 +19,7 @@ Element  = RawText / Placeholder
 Open = open: "{{"
 Close = close: "}}"
 
-RawText = txt:(!Open .)+ {return {type: 'text', value: joinAggregated(txt)}}
+RawText = txt:(!Open .)+ { return {type: 'text', value: joinAggregated(txt)} }
 
 
 Arg = AcuteStringLiteral
@@ -50,45 +52,56 @@ ItemDescriptor = lex:Lexeme __ "[" __ item:Arg __ "]" {return {type: 'item', val
 
 Relative = CARET __ number:DecimalDigit+ {return {type: 'relative', value: parseInt(number.join(''), 10)}}
 
-Pointer = ASTERISK __ "(" __ args:Arg __ ")" {return {type: 'pointer', args}}
-	/ ASTERISK __ args:Arg                   {return {type: 'pointer', args}}
+Pointer = ASTERISK __ "(" __ value:Arg __ ")" {return {type: 'pointer', value}}
+	/ ASTERISK __ value:Arg                   {return {type: 'pointer', value}}
 
-Lexeme = lex:(! (Close / BLANK / [#,.^()\[\'\"\]*] ) .)+ {return {type: 'lexeme', value: joinAggregated(lex)}}
+Lexeme = lex:(! (Close / BLANK / [#,.^()\[\'\"\]!*] ) .)+
+	{return {type: 'regular', value: joinAggregated(lex)}}
 
 Placeholder =
-	  op:OperatorIf
-    / op:OperatorUnless
-    / op:OperatorLongInsert
-//    / op:OperatorInsert
+	  OperatorIf
+    / OperatorUnless
+    / OperatorLongInsert
+    / OperatorInsert
+    / OperatorFor
+    / CommentPlaceholder
 
 OperatorIf =
-	Open __ op_type:"IF"i _ args:Arg __ Comment? Close
+	Open __ op_type:"IF"i _ value:Arg __ Comment? Close
     truePath:Layer? (Open __ "ELSE"i __ Comment? Close)?
     falsePath: (layer:Layer? Open __ "END"i __ Comment? Close {return layer})
-		{return {op_type: 'if', args/*: joinAggregated(args)*/, truePath, falsePath}}
+		{return {type: 'if', value, truePath, falsePath}}
 
 OperatorUnless =
-	Open __ op_type:"UNLESS"i _ args:Arg __ Comment? Close
+	Open __ op_type:"UNLESS"i _ value:Arg __ Comment? Close
     falsePath: (Layer Open __ "ELSE"i __ Comment? Close)?
     truePath: (Layer? Open __ "END"i __ Comment? Close)
-    	{return {op_type: 'unless', args/*: joinAggregated(args)*/, truePath, falsePath}}
+    	{return {type: 'unless', value, truePath, falsePath}}
 
 OperatorLongInsert =
-	Open __ "=" __ args:Arg __ Comment? Close
-    	{return {op_type: 'insert', args}}
+	Open __ "=" __ value:Arg __ Comment? Close
+    	{return {type: 'insert', value}}
 
 OperatorInsert =
-	Open __ args:Arg __ Comment? Close
-    	{return {op_type: 'insert', args/*: joinAggregated(args)*/}}
+	Open __ value:Arg &{
+    	const arg = Array.isArray(value) ? value[0] : {};
+        return !keywords.includes(arg.value) || (arg.type === 'string')
+    } __ Comment? Close
+    	{return {type: 'insert', value}}
+
+OperatorFor = Open __ "FOR"i _ Lexeme _ "IN"i _ Arg Close Layer? Open __ "END"i __ Close
+
+CommentPlaceholder = Open __ Comment __ Close
+	{return {type: 'comment'};}
 
 Comment = HASH (!Close .)*
 
 StringLiteral "string"
   = '"' chars:DoubleStringCharacter* '"' {
-      return { type: "regular", value: chars.join("") };
+      return { type: "string", value: chars.join("") };
     }
   / "'" chars:SingleStringCharacter* "'" {
-      return { type: "regular", value: chars.join("") };
+      return { type: "string", value: chars.join("") };
     }
 
 AcuteStringLiteral = "`" chars:AcuteStringCharacter* "`" {
