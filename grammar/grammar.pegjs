@@ -68,6 +68,7 @@ Tag =
 	  TagIf
     / TagUnless
     / TagInsert
+    / TagFor
     / TagEach
     / TagComment
 
@@ -78,17 +79,27 @@ TagIf =
 		{return {type: 'if', value, truePath, falsePath}}
 
 TagUnless =
-	Open __ op_type:"UNLESS"i _ value:Arg __ Comment? Close
+	Open __ op_type:"UNLESS"i _ value:Expression __ Comment? Close
     falsePath: (Layer Open __ "ELSE"i __ Comment? Close)?
     truePath: (Layer? Open __ "END"i __ Comment? Close)
     	{return {type: 'unless', value, truePath, falsePath}}
 
 TagInsert =
-	Open __ value:Arg &{
+	Open __ value:(Expression) &{
     	const arg = Array.isArray(value) ? value[0] : {};
         return !keywords.includes(arg.value) || (arg.type === 'string')
     } __ Comment? Close
     	{return {type: 'insert', value}}
+
+TagFor = Open
+	__ "FOR"i _ variable:TmpVar
+	_ "IN"i _ source:Arg
+    __
+    Comment?
+    Close
+	value:Layer?
+    Open __ "END"i __ Comment? Close
+    	{return {type: 'for', variable, source, value}}
 
 TagEach = Open
 	__ "EACH"i _ variable:TmpVar
