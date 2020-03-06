@@ -110,11 +110,21 @@ Comment = HASH (!Close .)*
 BracketsExpr = "(" __ expr:Expression __ ")" {return expr}
 
 Expression =
-	left:(BracketsExpr / Arg) __ operator:Operators __ right:(Expression / Arg)
+	left:(BracketsExpr / Arg) __ operator:BinaryOperators __ right:(Expression / Arg)
  		{return {type: 'expression', left, right, operator}}
+    / operator:PrefixUnaryOperators __ right:(Expression / Arg)
+    	{return {type: 'expression', right, operator}}
+    / left:(BracketsExpr/ Arg) __ operator:PostfixUnaryOperators
+    	{return {type: 'expression', left, operator}}
     / BracketsExpr
+    / Arg
 
-Operators = "===" / "!==" / "==" / "!=" /  "<" / "<=" / ">" / ">=" / "%" / OpAnd / OpOr / OpNot
+BinaryOperators = "===" / "!==" / "==" / "!=" /  "<"
+	/ "<=" / ">" / ">=" / "%" / OpAnd / OpOr / "+" / "-" / "*" / "/"
+
+PrefixUnaryOperators = op:("++" / "--" / "+" / "-" / OpNot) {return 'prefix' + op}
+
+PostfixUnaryOperators = op:("++" / "--") {return 'postfix' + op}
 
 OpAnd = "&&" {return '&&'} / "AND"i {return '&&'}
 
