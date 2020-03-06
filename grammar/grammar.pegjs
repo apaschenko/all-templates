@@ -14,7 +14,7 @@ Start = Layer
 
 Layer = __ nodes:Element* { return nodes }
 
-Element  = RawText / Placeholder
+Element  = RawText / Tag
 
 Open = open: "{{"
 Close = close: "}}"
@@ -22,7 +22,7 @@ Close = close: "}}"
 RawText = txt:(!Open .)+ { return {type: 'text', value: joinAggregated(txt)} }
 
 
-Arg = InEach
+Arg = WithoutParsing
 	/ AcuteStringLiteral
 	/ first:ArgPart tail:(__ "." __ tail:ArgPart {return tail;})* {
     const arr=[first];
@@ -56,46 +56,43 @@ Relative = CARET __ number:DecimalDigit+ {return {type: 'relative', value: parse
 Pointer = ASTERISK __ "(" __ value:Arg __ ")" {return {type: 'pointer', value}}
 	/ ASTERISK __ value:Arg                   {return {type: 'pointer', value}}
 
-InEach = "!" __ arg:Arg {return {type: 'local', value: arg}}
+WithoutParsing = "=" __ arg:Arg {return {type: 'without_parsing', value: arg}}
 
-Lexeme = lex:(! (Close / BLANK / [#,.^()\[\'\"\]!*] ) .)+
-	{return {type: 'regular', value: joinAggregated(lex)}}
+Lexeme =
+	lex:(DecimalDigit)+
+    	{return {type: 'integer', value: lex.join('')}}
+    / lex:(! (Close / BLANK / RESTRICTED_IN_LEXEMES ) .)+
+		{return {type: 'regular', value: joinAggregated(lex)}}
 
-Placeholder =
-	  OperatorIf
-    / OperatorUnless
-    / OperatorLongInsert
-    / OperatorInsert
-    / OperatorEach
-    / CommentPlaceholder
+Tag =
+	  TagIf
+    / TagUnless
+    / TagInsert
+    / TagEach
+    / TagComment
 
-OperatorIf =
-	Open __ op_type:"IF"i _ value:Arg __ Comment? Close
+TagIf =
+	Open __ op_type:"IF"i _ value:Expression __ Comment? Close
     truePath:Layer? (Open __ "ELSE"i __ Comment? Close)?
     falsePath: (layer:Layer? Open __ "END"i __ Comment? Close {return layer})
 		{return {type: 'if', value, truePath, falsePath}}
 
-OperatorUnless =
+TagUnless =
 	Open __ op_type:"UNLESS"i _ value:Arg __ Comment? Close
     falsePath: (Layer Open __ "ELSE"i __ Comment? Close)?
     truePath: (Layer? Open __ "END"i __ Comment? Close)
     	{return {type: 'unless', value, truePath, falsePath}}
 
-OperatorLongInsert =
-	Open __ "=" __ value:Arg __ Comment? Close
-    	{return {type: 'insert', value}}
-
-OperatorInsert =
+TagInsert =
 	Open __ value:Arg &{
     	const arg = Array.isArray(value) ? value[0] : {};
         return !keywords.includes(arg.value) || (arg.type === 'string')
     } __ Comment? Close
     	{return {type: 'insert', value}}
 
-OperatorEach = Open
-	__ "EACH"i _ variable:Lexeme
-	_ "OF"i _ object:Arg
-    transform:(_ "TRANSFORM"i  _ arg:Arg {return arg;})?
+TagEach = Open
+	__ "EACH"i _ variable:TmpVar
+	_ "OF"i _ source:Arg
     delimiter:(_ "WITH"i _ arg:Arg {return arg;})?
     __
     Comment?
@@ -103,12 +100,29 @@ OperatorEach = Open
 	value:Layer?
     empty:(Open __ "EMPTY" __ Comment? Close layer:Layer {return layer;})?
     Open __ "END"i __ Comment? Close
-    	{return {type: 'each', variable, object, transform, delimiter, value, empty}}
+    	{return {type: 'each', variable, source, delimiter, value, empty}}
 
-CommentPlaceholder = Open __ Comment __ Close
+TagComment = Open __ Comment __ Close
 	{return {type: 'comment'};}
 
 Comment = HASH (!Close .)*
+
+BracketsExpr = "(" __ expr:Expression __ ")" {return expr}
+
+Expression =
+	left:(BracketsExpr / Arg) __ operator:Operators __ right:(Expression / Arg)
+ 		{return {type: 'expression', left, right, operator}}
+    / BracketsExpr
+
+Operators = "===" / "!==" / "==" / "!=" /  "<" / "<=" / ">" / ">=" / "%" / OpAnd / OpOr / OpNot
+
+OpAnd = "&&" {return '&&'} / "AND"i {return '&&'}
+
+OpOr = "||" {return '||'} / "OR"i {return '&&'}
+
+OpNot = "!" {return '!'} / "NOT"i {return '!'}
+
+TmpVar = "`" chars:TmpVarCharacter* "`" {return { type: "tmp_var_name", value: chars.join("") };}
 
 StringLiteral "string"
   = '"' chars:DoubleStringCharacter* '"' {
@@ -119,26 +133,31 @@ StringLiteral "string"
     }
 
 AcuteStringLiteral = "`" chars:AcuteStringCharacter* "`" {
-      return { type: "acute", value: chars.join("") };
+      return { type: "a_string", value: chars.join("") };
     }
 
 DoubleStringCharacter
-  = !('"' / "\\" / LineTerminator) SourceCharacter { return text(); }
-  / "\\" sequence:EscapeSequence { return sequence; }
+  = !('"' / ESCAPE_SYMBOL / LineTerminator) SourceCharacter { return text(); }
+  / ESCAPE_SYMBOL sequence:(ESCAPE_SYMBOL / '"') { return sequence; }
   / LineContinuation
 
 SingleStringCharacter
-  = !("'" / "\\" / LineTerminator) SourceCharacter { return text(); }
-  / "\\" sequence:EscapeSequence { return sequence; }
+  = !("'" / ESCAPE_SYMBOL / LineTerminator) SourceCharacter { return text(); }
+  / ESCAPE_SYMBOL sequence:EscapeSequence { return sequence; }
   / LineContinuation
 
 AcuteStringCharacter
-  = !("`" / "\\" / LineTerminator) SourceCharacter { return text(); }
-  / "\\" sequence:EscapeSequence { return sequence; }
+  = !("`" / ESCAPE_SYMBOL / LineTerminator) SourceCharacter { return text(); }
+  / ESCAPE_SYMBOL sequence:EscapeSequence { return sequence; }
+  / LineContinuation
+
+TmpVarCharacter
+  = !('`' / ESCAPE_SYMBOL / LineTerminator / RESTRICTED_IN_LEXEMES ) SourceCharacter { return text(); }
+  / ESCAPE_SYMBOL sequence:(ESCAPE_SYMBOL / '"') { return sequence; }
   / LineContinuation
 
 LineContinuation
-  = "\\" LineTerminatorSequence { return ""; }
+  = ESCAPE_SYMBOL LineTerminatorSequence { return ""; }
 
 EscapeSequence
   = CharacterEscapeSequence
@@ -150,8 +169,7 @@ CharacterEscapeSequence
 SingleEscapeCharacter
   = "'"
   / '"'
-  / '`'
-  / "\\"
+  / ESCAPE_SYMBOL
 
 NonEscapeCharacter
   = !(EscapeCharacter / LineTerminator) SourceCharacter { return text(); }
@@ -175,6 +193,8 @@ LineTerminatorSequence "end of line"
 
 EOF = !.
 
+RESTRICTED_IN_LEXEMES = [#,.^()\[\'\"\]!*=+-><]
+
 DecimalDigit
   = [0-9]
 
@@ -187,6 +207,7 @@ __
 _
   = BLANK+
 
+ESCAPE_SYMBOL = '\\'
 HASH = "#"
 DOT = "."
 COMMA = ','
