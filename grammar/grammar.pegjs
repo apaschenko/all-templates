@@ -213,7 +213,7 @@ DoubleStringCharacter
 
 SingleStringCharacter
   = !("'" / ESCAPE_SYMBOL / LineTerminator) SourceCharacter { return text(); }
-  / ESCAPE_SYMBOL sequence:EscapeSequence { return sequence; }
+  / ESCAPE_SYMBOL sequence:(ESCAPE_SYMBOL / "'") { return sequence; }
   / LineContinuation
 
 LocalVarCharacter
@@ -224,30 +224,11 @@ LocalVarCharacter
 LineContinuation
   = ESCAPE_SYMBOL LineTerminatorSequence { return ""; }
 
-EscapeSequence
-  = CharacterEscapeSequence
-
-CharacterEscapeSequence
-  = SingleEscapeCharacter
-  / NonEscapeCharacter
-
-SingleEscapeCharacter
-  = "'"
-  / '"'
-  / ESCAPE_SYMBOL
-
-NonEscapeCharacter
-  = !(EscapeCharacter / LineTerminator) SourceCharacter { return text(); }
-
-EscapeCharacter
-  = SingleEscapeCharacter
-
 SourceCharacter
   = .
 
 LineTerminator
   = [\n\r\u2028\u2029]
-
 
 LineTerminatorSequence "end of line"
   = "\n"
@@ -256,16 +237,10 @@ LineTerminatorSequence "end of line"
   / "\u2028"
   / "\u2029"
 
-EOF = !.
-
 RESTRICTED_IN_LEXEMES = [#,.;^()\[\'\"\]!*=+-><]
 
 DecimalDigit
   = [0-9]
-
-HexDigit
-  = [0-9a-f]i
-
 __
   = BLANK*
 
