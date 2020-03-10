@@ -6,7 +6,7 @@
         }, []).join('');
     }
 
-    const keywords = ['if', 'unless', 'else', 'end', '=', 'each', 'of', 'with'];
+    const keywords = ['if', 'unless', 'else', 'end', 'each', 'of', 'with', 'empty', 'for', 'while', 'do', 'block'];
 }
 
 
@@ -23,7 +23,6 @@ RawText = txt:(!Open .)+ { return {type: 'text', value: joinAggregated(txt)} }
 
 
 Arg = WithoutParsing
-	/ AcuteStringLiteral
 	/ first:ArgPart tail:(__ "." __ tail:ArgPart {return tail;})* {
     const arr=[first];
     if (tail) {
@@ -34,7 +33,7 @@ Arg = WithoutParsing
     return arr;
 }
 
-ArgPart = FunctionDescriptor / ItemDescriptor / StringLiteral / Relative / Pointer /Lexeme
+ArgPart = FunctionDescriptor / ItemDescriptor / StringLiteral / LocalVar / Relative / Pointer / Lexeme
 
 FunctionDescriptor =
 	fname:(StringLiteral/ItemDescriptor/Lexeme) __ "("__ args: FuncListArgs? __ ")"
@@ -64,12 +63,14 @@ Lexeme =
     / lex:(! (Close / BLANK / RESTRICTED_IN_LEXEMES ) .)+
 		{return {type: 'regular', value: joinAggregated(lex)}}
 
-Tag =
-	  TagIf
+Tag = TagFor
+	/ TagIf
     / TagUnless
     / TagInsert
-    / TagFor
     / TagEach
+    / TagWhile
+    / TagDoWhile
+    / TagBlock
     / TagComment
 
 TagIf =
@@ -92,26 +93,52 @@ TagInsert =
     	{return {type: 'insert', value}}
 
 TagFor = Open
-	__ "FOR"i _ variable:TmpVar
-	_ "IN"i _ source:Arg
-    __
-    Comment?
-    Close
-	value:Layer?
-    Open __ "END"i __ Comment? Close
-    	{return {type: 'for', variable, source, value}}
+        __ "FOR"i __ "(" __ init:MultiExpression? __ SEMICOLON
+        __ cond:Expression? __ SEMICOLON
+        __ after:MultiExpression? __ ")" __
+        Comment?
+        Close
+        value:Layer?
+        Open __ "END"i __ Comment? Close
+            {return {type: 'for', init, cond, after, value}}
+    / Open
+        __ "FOR"i _ init:MultiExpression? __ SEMICOLON
+        __ cond:Expression? __ SEMICOLON
+        __ after:MultiExpression? __
+        Comment?
+        Close
+        value:Layer?
+        Open __ "END"i __ Comment? Close
+            {return {type: 'for', init, cond, after, value}}
 
-TagEach = Open
-	__ "EACH"i _ variable:TmpVar
-	_ "OF"i _ source:Arg
-    delimiter:(_ "WITH"i _ arg:Arg {return arg;})?
-    __
-    Comment?
-    Close
-	value:Layer?
-    empty:(Open __ "EMPTY" __ Comment? Close layer:Layer {return layer;})?
+EachTagOpen = Open __ "EACH"i _ variable:LocalVar _ "OF"i _ source:Arg __ Comment? Close value:Layer?
+	{return {variable, source, value}}
+
+TagEachFistForm = open:EachTagOpen
+    empty:(Open __ "EMPTY"i __ Comment? Close layer:Layer {return layer;})?
+    delimiter:(Open __ "WITH"i __ Comment? Close layer:Layer {return layer;})?
     Open __ "END"i __ Comment? Close
-    	{return {type: 'each', variable, source, delimiter, value, empty}}
+    	{return {type: 'each', variable: open.variable, source: open.source, delimiter, value: open.value, empty}}
+
+TagEachSecondForm = open:EachTagOpen
+    delimiter:(Open __ "WITH"i __ Close layer:Layer {return layer;})?
+    empty:(Open __ "EMPTY"i __ Comment? Close layer:Layer {return layer;})?
+    Open __ "END"i __ Comment? Close
+    	{return {type: 'each', variable: open.variable, source: open.source, delimiter, value: open.value, empty}}
+
+TagEach = TagEachFistForm / TagEachSecondForm
+
+TagWhile = Open __ "WHILE"i _ expression:MultiExpression __ Comment? Close
+	layer:Layer Open __ "END"i __ Comment? Close
+		{return {type: 'while', expression, layer}}
+
+TagDoWhile = Open __ "DO"i __ Comment? Close layer:Layer
+	Open __ "WHILE"i _ expression:MultiExpression __ Comment? Close
+		{return {type: 'do_while', expression, layer}}
+
+TagBlock = Open __ "BLOCK"i _ expression:MultiExpression __ Comment? Close layer:Layer
+	Open __ "END"i __ Comment? Close
+    	{return {type: 'block', expression, layer}}
 
 TagComment = Open __ Comment __ Close
 	{return {type: 'comment'};}
@@ -123,19 +150,45 @@ BracketsExpr = "(" __ expr:Expression __ ")" {return expr}
 Expression =
 	left:(BracketsExpr / Arg) __ operator:BinaryOperators __ right:(Expression / Arg)
  		{return {type: 'expression', left, right, operator}}
-    / operator:PrefixUnaryOperators __ right:(Expression / Arg)
+    / left:LocalVar __ operator:BinaryLocalVarOperators __ right:(Expression / Arg)
+ 		{return {type: 'expression', left, right, operator}}
+    / operator:PrefixUnaryShortSetOperators __ right:(Expression / Arg)
     	{return {type: 'expression', right, operator}}
-    / left:(BracketsExpr/ Arg) __ operator:PostfixUnaryOperators
+    / operator:PrefixUnaryLocalVarOperators __ right:LocalVar
+    	{return {type: 'expression', right, operator}}
+    / left:LocalVar __ operator:PostfixUnaryLocalVarOperators
     	{return {type: 'expression', left, operator}}
     / BracketsExpr
     / Arg
 
+MultiExpression = "(" first:Expression tail:(__ "," __ arg:Expression {return arg;})* ")"
+    	{
+    	const arr = [first];
+        for (let i of tail) {
+        	arr.push(i)
+        };
+        return arr;
+    }
+	/ first:Expression tail:(__ "," __ arg:Expression {return arg;})*
+    	{
+    	const arr = [first];
+        for (let i of tail) {
+        	arr.push(i)
+        };
+        return arr;
+    }
+
+
 BinaryOperators = "===" / "!==" / "==" / "!=" /  "<"
 	/ "<=" / ">" / ">=" / "%" / OpAnd / OpOr / "+" / "-" / "*" / "/"
 
-PrefixUnaryOperators = op:("++" / "--" / "+" / "-" / OpNot) {return 'prefix' + op}
+BinaryLocalVarOperators = "+=" / "-=" / "="
 
-PostfixUnaryOperators = op:("++" / "--") {return 'postfix' + op}
+PrefixUnaryShortSetOperators = op:("+" / "-" / OpNot) {return 'prefix' + op}
+
+PrefixUnaryLocalVarOperators = op:("++" / "--") {return 'prefix' + op}
+
+PostfixUnaryLocalVarOperators = op:("++" / "--") {return 'postfix' + op}
 
 OpAnd = "&&" {return '&&'} / "AND"i {return '&&'}
 
@@ -143,7 +196,7 @@ OpOr = "||" {return '||'} / "OR"i {return '&&'}
 
 OpNot = "!" {return '!'} / "NOT"i {return '!'}
 
-TmpVar = "`" chars:TmpVarCharacter* "`" {return { type: "tmp_var_name", value: chars.join("") };}
+LocalVar = "`" chars:LocalVarCharacter* "`" {return { type: "local_var_name", value: chars.join("") };}
 
 StringLiteral "string"
   = '"' chars:DoubleStringCharacter* '"' {
@@ -151,10 +204,6 @@ StringLiteral "string"
     }
   / "'" chars:SingleStringCharacter* "'" {
       return { type: "string", value: chars.join("") };
-    }
-
-AcuteStringLiteral = "`" chars:AcuteStringCharacter* "`" {
-      return { type: "a_string", value: chars.join("") };
     }
 
 DoubleStringCharacter
@@ -167,14 +216,9 @@ SingleStringCharacter
   / ESCAPE_SYMBOL sequence:EscapeSequence { return sequence; }
   / LineContinuation
 
-AcuteStringCharacter
-  = !("`" / ESCAPE_SYMBOL / LineTerminator) SourceCharacter { return text(); }
-  / ESCAPE_SYMBOL sequence:EscapeSequence { return sequence; }
-  / LineContinuation
-
-TmpVarCharacter
+LocalVarCharacter
   = !('`' / ESCAPE_SYMBOL / LineTerminator / RESTRICTED_IN_LEXEMES ) SourceCharacter { return text(); }
-  / ESCAPE_SYMBOL sequence:(ESCAPE_SYMBOL / '"') { return sequence; }
+  / ESCAPE_SYMBOL sequence:(ESCAPE_SYMBOL / '`') { return sequence; }
   / LineContinuation
 
 LineContinuation
@@ -214,7 +258,7 @@ LineTerminatorSequence "end of line"
 
 EOF = !.
 
-RESTRICTED_IN_LEXEMES = [#,.^()\[\'\"\]!*=+-><]
+RESTRICTED_IN_LEXEMES = [#,.;^()\[\'\"\]!*=+-><]
 
 DecimalDigit
   = [0-9]
@@ -235,3 +279,4 @@ COMMA = ','
 CARET = '^'
 ASTERISK = '*'
 BLANK = [\r\n \t\u000C]
+SEMICOLON = ";"
