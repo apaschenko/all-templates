@@ -75,14 +75,16 @@ Tag = TagFor
 
 TagIf =
 	Open __ op_type:"IF"i _ value:Expression __ Comment? Close
-    truePath:Layer? (Open __ "ELSE"i __ Comment? Close)?
-    falsePath: (layer:Layer? Open __ "END"i __ Comment? Close {return layer})
-		{return {type: 'if', value, truePath, falsePath}}
+    truePath: Layer?
+    falsePath: (Open __ "ELSE"i __ Comment? Close layer: Layer? {return layer})?
+    ( Open __ "END"i __ Comment? Close )
+		{  return {type: 'if', value, truePath, falsePath}}
 
 TagUnless =
 	Open __ op_type:"UNLESS"i _ value:Expression __ Comment? Close
-    falsePath: (Layer Open __ "ELSE"i __ Comment? Close)?
-    truePath: (Layer? Open __ "END"i __ Comment? Close)
+    falsePath: Layer?
+    truePath: (Open __ "ELSE"i __ Comment? Close layer: Layer? {return layer})?
+    ( Open __ "END"i __ Comment? Close )
     	{return {type: 'unless', value, truePath, falsePath}}
 
 TagInsert =
