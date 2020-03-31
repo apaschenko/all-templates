@@ -8,7 +8,5 @@
 
 'use strict';
 
-const main = require('./lib/main');
+module.exports = require('./lib/main');
 
-
-module.exports = main;
