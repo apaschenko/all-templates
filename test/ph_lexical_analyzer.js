@@ -17,7 +17,7 @@ const Exceptions = {
 
 describe('ph_lexical_analyzer.js', function () {
     let analyzerInput = {
-        placeholder: undefined,
+        tag: undefined,
         fullEntry: 'test Full Entry',
         layerName: 'test Layer Name',
     };

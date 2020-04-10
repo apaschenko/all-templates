@@ -9,8 +9,9 @@ async function aaa () {
         (
             start,
             {'qwe': 'RESOLVE!', tester: true, aaa: 'very', bbb: ' CUSTOM DELIMITER WORKS! '},
-            //{ placeholder: {open: '((', close: '))'}}
-               );
+            //{ tag: {open: '((', close: '))'}}
+            {entryPoint: 'its."my".layer'}
+        );
     console.log('\n RES:\n', `"${'1'}"`);
 }
 

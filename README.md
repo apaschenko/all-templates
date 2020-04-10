@@ -88,7 +88,7 @@ const data = {
 };
 
 const options = {
-    placeholder: {
+    tag: {
         open: '((',
         close: '))'
     }

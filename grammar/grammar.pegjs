@@ -12,7 +12,7 @@
 
 Start = Layer
 
-Layer = __ nodes:Element* { return nodes }
+Layer = nodes:Element* { return nodes }
 
 Element  = RawText / Tag
 
@@ -23,7 +23,7 @@ RawText = txt:(!Open .)+ { return {type: 'text', value: joinAggregated(txt)} }
 
 
 Arg = WithoutParsing
-	/ first:ArgPart tail:(__ "." __ tail:ArgPart {return tail;})* {
+	/ first:ArgPart tail:(__ "." __ tail:ArgPart {return tail})* {
     const arr=[first];
     if (tail) {
       for (let i of tail) {

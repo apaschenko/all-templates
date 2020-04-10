@@ -450,105 +450,105 @@ describe('validators.js', function () {
                 });
             });
 
-            describe('options.placeholder', function() {
-                it('Exception: "options.placeholder" is not an Object', function (done) {
-                    const pars = { ...params, options: {placeholder: 1} };
+            describe('options.tag', function() {
+                it('Exception: "options.tag" is not an Object', function (done) {
+                    const pars = { ...params, options: {tag: 1} };
                     validator(testModules, pars);
                     result.exception.code.should.be.equal(Exceptions.INVALID_PH);
                     done();
                 });
 
-                it('Exception: "options.placeholder" is an Array', function (done) {
-                    const pars = { ...params, options: {placeholder: ['q', 'w']} };
+                it('Exception: "options.tag" is an Array', function (done) {
+                    const pars = { ...params, options: {tag: ['q', 'w']} };
                     validator(testModules, pars);
                     result.exception.code.should.be.equal(Exceptions.INVALID_PH);
                     done();
                 });
 
-                it('Exception: "options.placeholder" is a Map', function (done) {
-                    const pars = { ...params, options: {placeholder:new Map([[1, 2]])} };
+                it('Exception: "options.tag" is a Map', function (done) {
+                    const pars = { ...params, options: {tag:new Map([[1, 2]])} };
                     validator(testModules, pars);
                     result.exception.code.should.be.equal(Exceptions.INVALID_PH);
                     done();
                 });
 
-                it('Exception: "options.placeholder" is a Set', function (done) {
-                    const pars = { ...params, options: {placeholder: new Set([1, 2])} };
+                it('Exception: "options.tag" is a Set', function (done) {
+                    const pars = { ...params, options: {tag: new Set([1, 2])} };
                     validator(testModules, pars);
                     result.exception.code.should.be.equal(Exceptions.INVALID_PH);
                     done();
                 });
 
-                it('Exception: "options.placeholder" contains an unknown key', function (done) {
-                    const pars = { ...params, options: {placeholder: {'unknown_key': 'qwerty'} } };
+                it('Exception: "options.tag" contains an unknown key', function (done) {
+                    const pars = { ...params, options: {tag: {'unknown_key': 'qwerty'} } };
                     validator(testModules, pars);
                     result.exception.code.should.be.equal(Exceptions.UNKNOWN_KEY);
                     done();
                 });
 
-                it('Exception: "options.placeholder.open" is not a string', function (done) {
-                    const pars = { ...params, options: {placeholder: {open: 1}} };
+                it('Exception: "options.tag.open" is not a string', function (done) {
+                    const pars = { ...params, options: {tag: {open: 1}} };
                     validator(testModules, pars);
                     result.exception.code.should.be.equal(Exceptions.INVALID_VALUE);
                     done();
                 });
 
-                it('Exception: "options.placeholder.open" is an empty string', function (done) {
-                    const pars = { ...params, options: {placeholder: {open: ''}} };
+                it('Exception: "options.tag.open" is an empty string', function (done) {
+                    const pars = { ...params, options: {tag: {open: ''}} };
                     validator(testModules, pars);
                     result.exception.code.should.be.equal(Exceptions.INVALID_VALUE);
                     done();
                 });
 
-                it('"options.placeholder.open" is undefined and ignored', function (done) {
+                it('"options.tag.open" is undefined and ignored', function (done) {
                     result = 'success';
-                    const pars = { ...params, options: {placeholder: {open: undefined}} };
+                    const pars = { ...params, options: {tag: {open: undefined}} };
                     validator(testModules, pars);
                     result.should.be.equal('success');
                     done();
                 });
 
-                it('"options.placeholder.open" is null and ignored', function (done) {
+                it('"options.tag.open" is null and ignored', function (done) {
                     result = 'success';
-                    const pars = { ...params, options: {placeholder: {open: null}} };
+                    const pars = { ...params, options: {tag: {open: null}} };
                     validator(testModules, pars);
                     result.should.be.equal('success');
                     done();
                 });
 
-                it('Exception: "options.placeholder.close" is not a string', function (done) {
-                    const pars = { ...params, options: {placeholder: {close: 1}} };
+                it('Exception: "options.tag.close" is not a string', function (done) {
+                    const pars = { ...params, options: {tag: {close: 1}} };
                     validator(testModules, pars);
                     result.exception.code.should.be.equal(Exceptions.INVALID_VALUE);
                     done();
                 });
 
-                it('Exception: "options.placeholder.close" is an empty string', function (done) {
-                    const pars = { ...params, options: {placeholder: {close: ''}} };
+                it('Exception: "options.tag.close" is an empty string', function (done) {
+                    const pars = { ...params, options: {tag: {close: ''}} };
                     validator(testModules, pars);
                     result.exception.code.should.be.equal(Exceptions.INVALID_VALUE);
                     done();
                 });
 
-                it('"options.placeholder.close" is undefined and ignored', function (done) {
+                it('"options.tag.close" is undefined and ignored', function (done) {
                     result = 'success';
-                    const pars = { ...params, options: {placeholder: {close: undefined}} };
+                    const pars = { ...params, options: {tag: {close: undefined}} };
                     validator(testModules, pars);
                     result.should.be.equal('success');
                     done();
                 });
 
-                it('"options.placeholder.close" is null and ignored', function (done) {
+                it('"options.tag.close" is null and ignored', function (done) {
                     result = 'success';
-                    const pars = { ...params, options: {placeholder: {close: null}} };
+                    const pars = { ...params, options: {tag: {close: null}} };
                     validator(testModules, pars);
                     result.should.be.equal('success');
                     done();
                 });
 
-                it('"options.placeholder" contains "open" and "close" keys', function (done) {
+                it('"options.tag" contains "open" and "close" keys', function (done) {
                     result = 'success';
-                    const pars = { ...params, options: {placeholder: {open: 'asd', close: 'qwe'}} };
+                    const pars = { ...params, options: {tag: {open: 'asd', close: 'qwe'}} };
                     validator(testModules, pars);
                     result.should.be.equal('success');
                     done();
