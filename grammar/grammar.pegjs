@@ -12,18 +12,18 @@
 
 Start = Layer
 
-Layer = nodes:Element* { return nodes }
+Layer = Element*
 
 Element  = RawText / Tag
 
-Open = open: "{{"
-Close = close: "}}"
+Open = "{{"
+Close = "}}"
 
 RawText = txt:(!Open .)+ { return {type: 'text', value: joinAggregated(txt)} }
 
 
 Arg = WithoutParsing
-	/ first:ArgPart tail:(__ "." __ tail:ArgPart {return tail})* {
+	/ first:ArgPart tail:(__ "." __ tail:ArgPart {return tail} / __ "[" __ tail:Expression __ "]" {return tail})* {
     const arr=[first];
     if (tail) {
       for (let i of tail) {
@@ -33,10 +33,10 @@ Arg = WithoutParsing
     return arr;
 }
 
-ArgPart = FunctionDescriptor / ItemDescriptor / StringLiteral / LocalVar / Relative / Pointer / Lexeme
+ArgPart = FunctionDescriptor / StringLiteral / LocalVar / Pointer / Lexeme
 
 FunctionDescriptor =
-	fname:(StringLiteral/ItemDescriptor/Lexeme) __ "("__ args: FuncListArgs? __ ")"
+	fname:(StringLiteral / Lexeme) __ "("__ args: FuncListArgs? __ ")"
     	{return {type: 'function', value: fname, args: args || []}}
 
 FuncListArgs = first:Arg tail:( __ "," __ arg:Arg {return arg;})*
@@ -48,9 +48,6 @@ FuncListArgs = first:Arg tail:( __ "," __ arg:Arg {return arg;})*
         return arr;
     }
 
-ItemDescriptor = lex:Lexeme __ "[" __ item:Arg __ "]" {return {type: 'item', value: lex, item}}
-
-Relative = CARET __ number:DecimalDigit+ {return {type: 'relative', value: parseInt(number.join(''), 10)}}
 
 Pointer = ASTERISK __ "(" __ value:Arg __ ")" {return {type: 'pointer', value}}
 	/ ASTERISK __ value:Arg                   {return {type: 'pointer', value}}
@@ -90,7 +87,7 @@ TagUnless =
 TagInsert =
 	Open __ value:(Expression) &{
     	const arg = Array.isArray(value) ? value[0] : {};
-        return !keywords.includes(arg.value) || (arg.type === 'string')
+        return !keywords.includes(arg.value) || (arg.subtype === 'string')
     } __ Comment? Close
     	{return {type: 'insert', value}}
 
@@ -202,10 +199,10 @@ LocalVar = "`" chars:LocalVarCharacter* "`" {return { type: "local_var_name", va
 
 StringLiteral "string"
   = '"' chars:DoubleStringCharacter* '"' {
-      return { type: "string", value: chars.join("") };
+      return { type: "regular", subtype: "string", value: chars.join("") };
     }
   / "'" chars:SingleStringCharacter* "'" {
-      return { type: "string", value: chars.join("") };
+      return { type: "regular", subtype: "string", value: chars.join("") };
     }
 
 DoubleStringCharacter
