@@ -30,7 +30,7 @@ Arg = WithoutParsing
           arr.push(i)
       };
     }
-    return arr;
+    return {type: 'arg', value:arr};
 }
 
 ArgPart = FunctionDescriptor / StringLiteral / LocalVar / Pointer / Lexeme
@@ -73,23 +73,23 @@ Tag = TagFor
 TagIf =
 	Open __ op_type:"IF"i _ value:Expression __ Comment? Close
     truePath: Layer?
-    falsePath: (Open __ "ELSE"i __ Comment? Close layer: Layer? {return layer})?
-    ( Open __ "END"i __ Comment? Close )
-		{  return {type: 'if', value, truePath, falsePath}}
+    falsePath: ElsePart?
+    EndPart
+		{  return {type: 'if', value, truePath: truePath || [], falsePath: falsePath || []}}
 
 TagUnless =
 	Open __ op_type:"UNLESS"i _ value:Expression __ Comment? Close
     falsePath: Layer?
-    truePath: (Open __ "ELSE"i __ Comment? Close layer: Layer? {return layer})?
-    ( Open __ "END"i __ Comment? Close )
-    	{return {type: 'unless', value, truePath, falsePath}}
+    truePath: ElsePart?
+    EndPart
+    	{return {type: 'unless', value, truePath: truePath || [], falsePath: falsePath || []}}
 
 TagInsert =
-	Open __ value:(Expression) &{
-    	const arg = Array.isArray(value) ? value[0] : {};
+	Open __ expr:(Expression) &{
+    	const arg = Array.isArray(expr.value) ? expr.value[0] : {value: 'missing in the keywords'};
         return !keywords.includes(arg.value) || (arg.subtype === 'string')
     } __ Comment? Close
-    	{return {type: 'insert', value}}
+    	{return {type: 'insert', value: expr}}
 
 TagFor = Open
         __ "FOR"i __ "(" __ init:MultiExpression? __ SEMICOLON
@@ -98,7 +98,7 @@ TagFor = Open
         Comment?
         Close
         value:Layer?
-        Open __ "END"i __ Comment? Close
+        EndPart
             {return {type: 'for', init, cond, after, value}}
     / Open
         __ "FOR"i _ init:MultiExpression? __ SEMICOLON
@@ -107,7 +107,7 @@ TagFor = Open
         Comment?
         Close
         value:Layer?
-        Open __ "END"i __ Comment? Close
+        EndPart
             {return {type: 'for', init, cond, after, value}}
 
 EachTagOpen = Open __ "EACH"i _ variable:LocalVar _ "OF"i _ source:Arg __ Comment? Close value:Layer?
@@ -116,19 +116,19 @@ EachTagOpen = Open __ "EACH"i _ variable:LocalVar _ "OF"i _ source:Arg __ Commen
 TagEachFistForm = open:EachTagOpen
     empty:(Open __ "EMPTY"i __ Comment? Close layer:Layer {return layer;})?
     delimiter:(Open __ "WITH"i __ Comment? Close layer:Layer {return layer;})?
-    Open __ "END"i __ Comment? Close
+    EndPart
     	{return {type: 'each', variable: open.variable, source: open.source, delimiter, value: open.value, empty}}
 
 TagEachSecondForm = open:EachTagOpen
     delimiter:(Open __ "WITH"i __ Close layer:Layer {return layer;})?
     empty:(Open __ "EMPTY"i __ Comment? Close layer:Layer {return layer;})?
-    Open __ "END"i __ Comment? Close
+    EndPart
     	{return {type: 'each', variable: open.variable, source: open.source, delimiter, value: open.value, empty}}
 
 TagEach = TagEachFistForm / TagEachSecondForm
 
 TagWhile = Open __ "WHILE"i _ expression:MultiExpression __ Comment? Close
-	layer:Layer Open __ "END"i __ Comment? Close
+	layer:Layer EndPart
 		{return {type: 'while', expression, layer}}
 
 TagDoWhile = Open __ "DO"i __ Comment? Close layer:Layer
@@ -136,7 +136,7 @@ TagDoWhile = Open __ "DO"i __ Comment? Close layer:Layer
 		{return {type: 'do_while', expression, layer}}
 
 TagBlock = Open __ "BLOCK"i _ expression:MultiExpression __ Comment? Close layer:Layer
-	Open __ "END"i __ Comment? Close
+	EndPart
     	{return {type: 'block', expression, layer}}
 
 TagComment = Open __ Comment __ Close
@@ -144,21 +144,42 @@ TagComment = Open __ Comment __ Close
 
 Comment = HASH (!Close .)*
 
+EndPart =
+    Open __ "END"i __ Comment? Close
+
+ElsePart =
+    Open __ "ELSE"i __ Comment? Close layer: Layer? {return layer}
+
 BracketsExpr = "(" __ expr:Expression __ ")" {return expr}
 
 Expression =
-	left:(BracketsExpr / Arg) __ operator:BinaryOperators __ right:(Expression / Arg)
- 		{return {type: 'expression', left, right, operator}}
-    / left:LocalVar __ operator:BinaryLocalVarOperators __ right:(Expression / Arg)
- 		{return {type: 'expression', left, right, operator}}
-    / operator:PrefixUnaryShortSetOperators __ right:(Expression / Arg)
-    	{return {type: 'expression', right, operator}}
-    / operator:PrefixUnaryLocalVarOperators __ right:LocalVar
-    	{return {type: 'expression', right, operator}}
-    / left:LocalVar __ operator:PostfixUnaryLocalVarOperators
-    	{return {type: 'expression', left, operator}}
+	ExprBinary
+	/ ExprBinaryLocalVar
+	/ ExprPrefixUnary
+	/ ExprPrefixUnaryLocalVar
+	/ ExprPostfixUnaryLocalVar
     / BracketsExpr
     / Arg
+
+ExprBinary =
+    left:(BracketsExpr / Arg) __ operator:BinaryOperators __ right:(Expression / Arg)
+        {return {type: 'expression', left, right, operator}}
+
+ExprBinaryLocalVar =
+    left:LocalVar __ operator:BinaryLocalVarOperators __ right:(Expression / Arg)
+ 		{return {type: 'expression', left, right, operator}}
+
+ExprPrefixUnary =
+    operator:PrefixUnaryShortSetOperators __ right:(Expression / Arg)
+        {return {type: 'expression', right, operator}}
+
+ExprPrefixUnaryLocalVar =
+    operator:PrefixUnaryLocalVarOperators __ right:LocalVar
+    	{return {type: 'expression', right, operator}}
+
+ExprPostfixUnaryLocalVar =
+    left:LocalVar __ operator:PostfixUnaryLocalVarOperators
+    	{return {type: 'expression', left, operator}}
 
 MultiExpression = "(" first:Expression tail:(__ "," __ arg:Expression {return arg;})* ")"
     	{
