@@ -1,11 +1,4 @@
 {
-	function joinAggregated(input) {
-    	return input.reduce(function(acc, item){
-        	acc.push(item[1]);
-            return acc;
-        }, []).join('');
-    }
-
     const keywords = ['if', 'unless', 'else', 'end', 'each', 'of', 'with', 'empty', 'for', 'while', 'do', 'block'];
 }
 
@@ -19,7 +12,7 @@ Element  = RawText / Tag
 Open = "{{"
 Close = "}}"
 
-RawText = txt:(!Open .)+ { return {type: 'text', value: joinAggregated(txt)} }
+RawText = txt: $ (!Open .)+ { return {type: 'text', value: txt} }
 
 
 Arg = WithoutParsing
@@ -30,7 +23,7 @@ Arg = WithoutParsing
           arr.push(i)
       };
     }
-    return {type: 'arg', value:arr};
+    return {type: 'id', value:arr};
 }
 
 ArgPart = FunctionDescriptor / StringLiteral / LocalVar / Pointer / Lexeme
@@ -57,90 +50,94 @@ WithoutParsing = "=" __ arg:Arg {return {type: 'without_parsing', value: arg}}
 Lexeme =
 	lex:(DecimalDigit)+
     	{return {type: 'integer', value: lex.join('')}}
-    / lex:(! (Close / BLANK / RESTRICTED_IN_LEXEMES ) .)+
-		{return {type: 'regular', value: joinAggregated(lex)}}
+    / lex: $ (! (Close / BLANK / RESTRICTED_IN_LEXEMES ) .)+
+        & {return !keywords.includes(lex.toLowerCase())}
+		{return {type: 'regular', value: lex}}
 
-Tag = TagFor
-	/ TagIf
+Tag = TagIf
     / TagUnless
+    / TagFor
     / TagInsert
     / TagEach
     / TagWhile
     / TagDoWhile
-    / TagBlock
+    / TagScope
     / TagComment
 
 TagIf =
-	Open __ op_type:"IF"i _ value:Expression __ Comment? Close
+	Open __ KEY_IF _ value:Expression __ Comment? Close
     truePath: Layer?
     falsePath: ElsePart?
     EndPart
-		{  return {type: 'if', value, truePath: truePath || [], falsePath: falsePath || []}}
+		{  return {type: 'tag_if', value, truePath: truePath || [], falsePath: falsePath || []}}
 
 TagUnless =
-	Open __ op_type:"UNLESS"i _ value:Expression __ Comment? Close
+	Open __ KEY_UNLESS _ value:Expression __ Comment? Close
     falsePath: Layer?
     truePath: ElsePart?
     EndPart
-    	{return {type: 'unless', value, truePath: truePath || [], falsePath: falsePath || []}}
+    	{return {type: 'tag_if', value, truePath: truePath || [], falsePath: falsePath || []}}
 
 TagInsert =
-	Open __ expr:(Expression) &{
-    	const arg = Array.isArray(expr.value) ? expr.value[0] : {value: 'missing in the keywords'};
-        return !keywords.includes(arg.value) || (arg.subtype === 'string')
-    } __ Comment? Close
-    	{return {type: 'insert', value: expr}}
+	Open __ expr:(Expression) __ Comment? Close
+    	{return {type: 'tag_insert', value: expr}}
 
 TagFor = Open
-        __ "FOR"i __ "(" __ init:MultiExpression? __ SEMICOLON
+        __ KEY_FOR __ "(" __ init:MultiExpression? __ SEMICOLON
         __ cond:Expression? __ SEMICOLON
         __ after:MultiExpression? __ ")" __
         Comment?
         Close
         value:Layer?
         EndPart
-            {return {type: 'for', init, cond, after, value}}
+            {return {type: 'tag_for', init, cond, after, value}}
     / Open
-        __ "FOR"i _ init:MultiExpression? __ SEMICOLON
+        __ KEY_FOR _ init:MultiExpression? __ SEMICOLON
         __ cond:Expression? __ SEMICOLON
         __ after:MultiExpression? __
         Comment?
         Close
         value:Layer?
         EndPart
-            {return {type: 'for', init, cond, after, value}}
+            {return {type: 'tag_for', init, cond, after, value}}
 
-EachTagOpen = Open __ "EACH"i _ variable:LocalVar _ "OF"i _ source:Arg __ Comment? Close value:Layer?
+EachTagOpen = Open __ KEY_EACH _ variable:LocalVar _ KEY_OF _ source:Arg __ Comment? Close value:Layer?
 	{return {variable, source, value}}
 
 TagEachFistForm = open:EachTagOpen
-    empty:(Open __ "EMPTY"i __ Comment? Close layer:Layer {return layer;})?
-    delimiter:(Open __ "WITH"i __ Comment? Close layer:Layer {return layer;})?
+    empty:(Open __ KEY_EMPTY __ Comment? Close layer:Layer {return layer;})?
+    delimiter:(Open __ KEY_WITH __ Comment? Close layer:Layer {return layer;})?
     EndPart
-    	{return {type: 'each', variable: open.variable, source: open.source, delimiter, value: open.value, empty}}
+    	{return {
+    	    type: 'tag_each', variable: open.variable, source: open.source, delimiter, value: open.value, empty
+        }}
 
 TagEachSecondForm = open:EachTagOpen
-    delimiter:(Open __ "WITH"i __ Close layer:Layer {return layer;})?
-    empty:(Open __ "EMPTY"i __ Comment? Close layer:Layer {return layer;})?
+    delimiter:(Open __ KEY_WITH __ Close layer:Layer {return layer;})?
+    empty:(Open __ KEY_EMPTY __ Comment? Close layer:Layer {return layer;})?
     EndPart
-    	{return {type: 'each', variable: open.variable, source: open.source, delimiter, value: open.value, empty}}
+    	{return {
+    	    type: 'tag_each', variable: open.variable, source: open.source, delimiter, value: open.value, empty
+        }}
 
 TagEach = TagEachFistForm / TagEachSecondForm
 
-TagWhile = Open __ "WHILE"i _ expression:MultiExpression __ Comment? Close
-	layer:Layer EndPart
-		{return {type: 'while', expression, layer}}
-
-TagDoWhile = Open __ "DO"i __ Comment? Close layer:Layer
-	Open __ "WHILE"i _ expression:MultiExpression __ Comment? Close
-		{return {type: 'do_while', expression, layer}}
-
-TagBlock = Open __ "BLOCK"i _ expression:MultiExpression __ Comment? Close layer:Layer
+TagWhile = Open __ KEY_WHILE _ expression:MultiExpression __ Comment? Close
+	layer:Layer
 	EndPart
-    	{return {type: 'block', expression, layer}}
+		{return {type: 'tag_while', expression, layer}}
+
+TagDoWhile = Open __ KEY_DO __ Comment? Close layer:Layer
+	Open __ KEY_WHILE _ expression:MultiExpression __ Comment? Close
+		{return {type: 'tag_do_while', expression, layer}}
+
+TagScope = Open __ KEY_SCOPE _ expression:MultiExpression __ Comment? Close
+    layer:Layer
+	EndPart
+    	{return {type: 'tag_scope', expression, layer}}
 
 TagComment = Open __ Comment __ Close
-	{return {type: 'comment'};}
+	{return {type: 'tag_comment'};}
 
 Comment = HASH (!Close .)*
 
@@ -258,6 +255,30 @@ LineTerminatorSequence "end of line"
   / "\u2029"
 
 RESTRICTED_IN_LEXEMES = [#,.;^()\[\'\"\]!*=+-><]
+
+KEY_IF = "IF"i
+
+KEY_UNLESS = "UNLESS"i
+
+KEY_ELSE = "ELSE"i
+
+KEY_END = "END"i
+
+KEY_EACH = "EACH"i
+
+KEY_OF = "OF"i
+
+KEY_WITH = "WITH"i
+
+KEY_EMPTY = "EMPTY"i
+
+KEY_FOR = "FOR"i
+
+KEY_WHILE = "WHILE"i
+
+KEY_DO = "DO"i
+
+KEY_SCOPE = "SCOPE"i
 
 DecimalDigit
   = [0-9]
