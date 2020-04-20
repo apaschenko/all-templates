@@ -5,9 +5,9 @@
 
 Start = Layer
 
-Layer = Element*
+Layer = els:Element* {return {type: 'layer', value: els || []}}
 
-Element  = RawText / Tag
+Element  = el:(RawText / Tag) { return {type: 'element', value: el, loc:location(), text: text()}; }
 
 Open = "{{"
 Close = "}}"
@@ -23,7 +23,7 @@ Id = WithoutParsing
           arr.push(i)
       };
     }
-    return {type: 'id', value:arr};
+    return {type: 'id', value:arr, loc: location(), text: text()};
 }
 
 IdPart = FunctionDescriptor / StringLiteral / LocalVar / Pointer / Lexeme
@@ -158,25 +158,26 @@ Expression =
     / BracketsExpr
     / Id
 
+
 ExprBinary =
     left:(BracketsExpr / Id) __ operator:BinaryOperators __ right:(Expression / Id)
-        {return {type: 'expression', left, right, operator}}
+        {return {type: 'expression', left, right, operator, loc: location(), text: text()} }
 
 ExprBinaryLocalVar =
     left:LocalVar __ operator:BinaryLocalVarOperators __ right:(Expression / Id)
- 		{return {type: 'expression', left, right, operator}}
+ 		{return {type: 'expression', left, right, operator, loc: location(), text: text()}}
 
 ExprPrefixUnary =
     operator:PrefixUnaryShortSetOperators __ right:(Expression / Id)
-        {return {type: 'expression', right, operator}}
+        {return {type: 'expression', right, operator, loc: location(), text: text()}}
 
 ExprPrefixUnaryLocalVar =
     operator:PrefixUnaryLocalVarOperators __ right:LocalVar
-    	{return {type: 'expression', right, operator}}
+    	{return {type: 'expression', right, operator, loc: location(), text: text()}}
 
 ExprPostfixUnaryLocalVar =
     left:LocalVar __ operator:PostfixUnaryLocalVarOperators
-    	{return {type: 'expression', left, operator}}
+    	{return {type: 'expression', left, operator, loc: location(), text: text()}}
 
 MultiExpression = "(" first:Expression tail:(__ "," __ arg:Expression {return arg;})* ")"
     	{
@@ -184,7 +185,7 @@ MultiExpression = "(" first:Expression tail:(__ "," __ arg:Expression {return ar
         for (let i of tail) {
         	arr.push(i)
         };
-        return arr;
+        return {type: 'multi_expression', value:arr, loc: location(), text: text()};
     }
 	/ first:Expression tail:(__ "," __ arg:Expression {return arg;})*
     	{
@@ -192,7 +193,7 @@ MultiExpression = "(" first:Expression tail:(__ "," __ arg:Expression {return ar
         for (let i of tail) {
         	arr.push(i)
         };
-        return arr;
+        return  {type: 'multi_expression', value:arr, loc: location(), text: text()};
     }
 
 
@@ -254,7 +255,7 @@ LineTerminatorSequence "end of line"
   / "\u2028"
   / "\u2029"
 
-RESTRICTED_IN_LEXEMES = [#,.;^()\[\'\"\]!*=+-><]
+RESTRICTED_IN_LEXEMES = [#,.;^()\[\'\"\]!*=+\-><]
 
 KEY_IF = "IF"i
 

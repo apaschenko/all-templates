@@ -12,10 +12,10 @@ const peg = require('pegjs');
 const fs = require('fs');
 
 const grammar = fs.readFileSync('./grammar.pegjs');
-const parser = peg.generate(grammar.toString(), {output: 'source', /*trace: true,*/ format: 'commonjs'});
+const parser = peg.generate(grammar.toString(), {output: 'source', trace: true, format: 'commonjs'});
 
 fs.writeFileSync('../lib/parser.js', parser); //return;
-const layer = '{{if a+b}} cde {{end}}';
+const layer = '{{if a1.z18+b2["ggg"]}} cde {{end}}';
 //             1234567890123456
 //const layer  =`
 //{{for a;;}} nm {{end}}`;
