@@ -15,8 +15,8 @@ Close = "}}"
 RawText = txt: $ (!Open .)+ { return {type: 'text', value: txt} }
 
 
-Arg = WithoutParsing
-	/ first:ArgPart tail:(__ "." __ tail:ArgPart {return tail} / __ "[" __ tail:Expression __ "]" {return tail})* {
+Id = WithoutParsing
+	/ first:IdPart tail:(__ "." __ tail:IdPart {return tail} / __ "[" __ tail:Expression __ "]" {return tail})* {
     const arr=[first];
     if (tail) {
       for (let i of tail) {
@@ -26,13 +26,13 @@ Arg = WithoutParsing
     return {type: 'id', value:arr};
 }
 
-ArgPart = FunctionDescriptor / StringLiteral / LocalVar / Pointer / Lexeme
+IdPart = FunctionDescriptor / StringLiteral / LocalVar / Pointer / Lexeme
 
 FunctionDescriptor =
 	fname:(StringLiteral / Lexeme) __ "("__ args: FuncListArgs? __ ")"
     	{return {type: 'function', value: fname, args: args || []}}
 
-FuncListArgs = first:Arg tail:( __ "," __ arg:Arg {return arg;})*
+FuncListArgs = first:Id tail:( __ "," __ arg:Id {return arg;})*
 	{
     	const arr = [first];
         for (let i of tail) {
@@ -42,10 +42,10 @@ FuncListArgs = first:Arg tail:( __ "," __ arg:Arg {return arg;})*
     }
 
 
-Pointer = ASTERISK __ "(" __ value:Arg __ ")" {return {type: 'pointer', value}}
-	/ ASTERISK __ value:Arg                   {return {type: 'pointer', value}}
+Pointer = ASTERISK __ "(" __ value:Id __ ")" {return {type: 'pointer', value}}
+	/ ASTERISK __ value:Id                   {return {type: 'pointer', value}}
 
-WithoutParsing = "=" __ arg:Arg {return {type: 'without_parsing', value: arg}}
+WithoutParsing = "=" __ arg:Id {return {type: 'without_parsing', value: arg}}
 
 Lexeme =
 	lex:(DecimalDigit)+
@@ -101,7 +101,7 @@ TagFor = Open
         EndPart
             {return {type: 'tag_for', init, cond, after, value}}
 
-EachTagOpen = Open __ KEY_EACH _ variable:LocalVar _ KEY_OF _ source:Arg __ Comment? Close value:Layer?
+EachTagOpen = Open __ KEY_EACH _ variable:LocalVar _ KEY_OF _ source:Id __ Comment? Close value:Layer?
 	{return {variable, source, value}}
 
 TagEachFistForm = open:EachTagOpen
@@ -156,18 +156,18 @@ Expression =
 	/ ExprPrefixUnaryLocalVar
 	/ ExprPostfixUnaryLocalVar
     / BracketsExpr
-    / Arg
+    / Id
 
 ExprBinary =
-    left:(BracketsExpr / Arg) __ operator:BinaryOperators __ right:(Expression / Arg)
+    left:(BracketsExpr / Id) __ operator:BinaryOperators __ right:(Expression / Id)
         {return {type: 'expression', left, right, operator}}
 
 ExprBinaryLocalVar =
-    left:LocalVar __ operator:BinaryLocalVarOperators __ right:(Expression / Arg)
+    left:LocalVar __ operator:BinaryLocalVarOperators __ right:(Expression / Id)
  		{return {type: 'expression', left, right, operator}}
 
 ExprPrefixUnary =
-    operator:PrefixUnaryShortSetOperators __ right:(Expression / Arg)
+    operator:PrefixUnaryShortSetOperators __ right:(Expression / Id)
         {return {type: 'expression', right, operator}}
 
 ExprPrefixUnaryLocalVar =
