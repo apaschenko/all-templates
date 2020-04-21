@@ -1,5 +1,27 @@
 {
-    const keywords = ['if', 'unless', 'else', 'end', 'each', 'of', 'with', 'empty', 'for', 'while', 'do', 'block'];
+    const keywords = [
+        'if', 'unless', 'else', 'end', 'each', 'of', 'with', 'empty', 'for', 'while', 'do', 'set', 'break', 'continue'
+    ];
+
+    function buildEachTag(open, value, empty, emptyLayer, delimiter, delimiterLayer, end) {
+        const text = [ open.text ];
+        if (empty) {
+            text.push(empty);
+        }
+        if (delimiter) {
+            text.push(delimiter);
+        }
+        text.push(end);
+        return {
+            type: 'tag_each',
+            variable: open.variable,
+            source: open.source,
+            value,
+            empty: emptyLayer,
+            delimiter: delimiterLayer,
+            text
+        }
+    }
 }
 
 
@@ -7,7 +29,7 @@ Start = Layer
 
 Layer = els:Element* {return {type: 'layer', value: els || []}}
 
-Element  = el:(RawText / Tag) { return {type: 'element', value: el, loc:location(), text: text()}; }
+Element  = RawText / Tag
 
 Open = "{{"
 Close = "}}"
@@ -23,7 +45,7 @@ Id = WithoutParsing
           arr.push(i)
       };
     }
-    return {type: 'id', value:arr, loc: location(), text: text()};
+    return { type: 'id', value:arr };
 }
 
 IdPart = FunctionDescriptor / StringLiteral / LocalVar / Pointer / Lexeme
@@ -56,98 +78,156 @@ Lexeme =
 
 Tag = TagIf
     / TagUnless
-    / TagFor
     / TagInsert
+    / TagFor
     / TagEach
     / TagWhile
-    / TagDoWhile
-    / TagScope
+//    / TagDoWhile
+    / TagSet
     / TagComment
 
 TagIf =
-	Open __ KEY_IF _ value:Expression __ Comment? Close
+	open: TagIfOpen
     truePath: Layer?
     falsePath: ElsePart?
-    EndPart
-		{  return {type: 'tag_if', value, truePath: truePath || [], falsePath: falsePath || []}}
+    end: EndPart
+		{
+		    text = [open.text];
+		    if (falsePath) {
+		        text.push(falsePath.text);
+		    }
+		    text.push(end);
+		    return {
+		        type: 'tag_if',
+		        value: open.value,
+		        truePath: truePath || [],
+		        falsePath: falsePath && falsePath.layer || [],
+		        text
+            }
+        }
+
+TagIfOpen =
+    Open __ KEY_IF _ value:Expression __ Comment? Close
+        { return {value, text: text()} }
 
 TagUnless =
-	Open __ KEY_UNLESS _ value:Expression __ Comment? Close
+	open: TagUnlessOpen
     falsePath: Layer?
     truePath: ElsePart?
-    EndPart
-    	{return {type: 'tag_if', value, truePath: truePath || [], falsePath: falsePath || []}}
+    end: EndPart
+    	{
+            text = [open.text];
+            if (truePath) {
+                text.push(truePath.text);
+            }
+            text.push(end);
+    	    return {
+    	        type: 'tag_if',
+    	        value: open.value,
+    	        truePath: truePath && truePath.value || [],
+    	        falsePath: falsePath || [],
+    	        text
+            }
+        }
+
+TagUnlessOpen =
+    Open __ KEY_UNLESS _ value:Expression __ Comment? Close
+        { return {value, text: text()} }
 
 TagInsert =
 	Open __ expr:(Expression) __ Comment? Close
-    	{return {type: 'tag_insert', value: expr}}
+    	{ return {type: 'tag_insert', value: expr, text: text()} }
 
-TagFor = Open
-        __ KEY_FOR __ "(" __ init:MultiExpression? __ SEMICOLON
-        __ cond:Expression? __ SEMICOLON
-        __ after:MultiExpression? __ ")" __
-        Comment?
-        Close
-        value:Layer?
-        EndPart
-            {return {type: 'tag_for', init, cond, after, value}}
-    / Open
-        __ KEY_FOR _ init:MultiExpression? __ SEMICOLON
-        __ cond:Expression? __ SEMICOLON
-        __ after:MultiExpression? __
-        Comment?
-        Close
-        value:Layer?
-        EndPart
-            {return {type: 'tag_for', init, cond, after, value}}
+TagFor =
+    open: ( TagForOpenFirstForm / TagForOpenSecondForm )
+    value: Layer?
+    end: EndPart
+        {
+            return {
+                type: 'tag_for', init: open.init, cond: open.cond, after: open.after, value, text: [open.text, end]
+            }
+        }
 
-EachTagOpen = Open __ KEY_EACH _ variable:LocalVar _ KEY_OF _ source:Id __ Comment? Close value:Layer?
-	{return {variable, source, value}}
+TagForOpenFirstForm =
+    Open
+    __ KEY_FOR __ "(" __ init:MultiExpression? __ SEMICOLON
+    __ cond:Expression? __ SEMICOLON
+    __ after:MultiExpression? __ ")" __
+    Comment?
+    Close
+        { return {init, cond, after, text: text()} }
 
-TagEachFistForm = open:EachTagOpen
-    empty:(Open __ KEY_EMPTY __ Comment? Close layer:Layer {return layer;})?
-    delimiter:(Open __ KEY_WITH __ Comment? Close layer:Layer {return layer;})?
-    EndPart
-    	{return {
-    	    type: 'tag_each', variable: open.variable, source: open.source, delimiter, value: open.value, empty
-        }}
+TagForOpenSecondForm =
+    Open
+    __ KEY_FOR _ init:MultiExpression? __ SEMICOLON
+    __ cond:Expression? __ SEMICOLON
+    __ after:MultiExpression? __
+    Comment?
+    Close
+        { return {init, cond, after, text: text()} }
 
-TagEachSecondForm = open:EachTagOpen
-    delimiter:(Open __ KEY_WITH __ Close layer:Layer {return layer;})?
-    empty:(Open __ KEY_EMPTY __ Comment? Close layer:Layer {return layer;})?
-    EndPart
-    	{return {
-    	    type: 'tag_each', variable: open.variable, source: open.source, delimiter, value: open.value, empty
-        }}
+
+TagEachOpen =
+    Open __ KEY_EACH _ variable:LocalVar _ KEY_OF _ source:Id __ Comment? Close
+	    { return {variable, source, text: text()} }
+
+TagEachFistForm =
+    open: TagEachOpen
+    value:Layer?
+    empty: (Open __ KEY_EMPTY __ Comment? Close { return text(); })?
+    emptyLayer: Layer?
+    delimiter: (Open __ KEY_WITH __ Comment? Close { return text(); })?
+    delimiterLayer: Layer?
+    end: EndPart
+    	{
+    	    return buildEachTag(open, value, empty, emptyLayer, delimiter, delimiterLayer, end);
+        }
+
+TagEachSecondForm =
+    open: TagEachOpen
+    value: Layer?
+    delimiter: (Open __ KEY_WITH __ Close { return text(); })?
+    delimiterLayer: Layer?
+    empty: (Open __ KEY_EMPTY __ Comment? Close { return text(); })?
+    emptyLayer: Layer?
+    end: EndPart
+    	{
+    	    return buildEachTag(open, value, empty, emptyLayer, delimiter, delimiterLayer, end);
+        }
 
 TagEach = TagEachFistForm / TagEachSecondForm
 
-TagWhile = Open __ KEY_WHILE _ expression:MultiExpression __ Comment? Close
-	layer:Layer
-	EndPart
-		{return {type: 'tag_while', expression, layer}}
+TagWhile =
+    open: (Open __ KEY_WHILE _ expr:MultiExpression __ Comment? Close { return {expr, text: text()} })
+	layer: Layer
+	end: EndPart
+		{ return {type: 'tag_while', expression: open.expr, layer, text: [open.text, end]} }
 
-TagDoWhile = Open __ KEY_DO __ Comment? Close layer:Layer
-	Open __ KEY_WHILE _ expression:MultiExpression __ Comment? Close
-		{return {type: 'tag_do_while', expression, layer}}
+TagDoWhile =
+    open: (Open __ KEY_DO __ Comment? Close { return text(); })
+    layer: Layer
+	whilePart: (Open __ KEY_WHILE _ expr:MultiExpression __ Comment? Close { return {expr, text: text()} })
+		{ return {type: 'tag_do_while', expression: whilePart.expr, layer, text: [open, whilePart.text]} }
 
-TagScope = Open __ KEY_SCOPE _ expression:MultiExpression __ Comment? Close
-    layer:Layer
-	EndPart
-    	{return {type: 'tag_scope', expression, layer}}
+TagSet =
+    Open __ KEY_SET _ expression:MultiExpression __ Comment? Close
+    	{ return {type: 'tag_set', expression, text: text()} }
 
 TagComment = Open __ Comment __ Close
-	{return {type: 'tag_comment'};}
+	{ return {type: 'tag_comment'}; }
 
 Comment = HASH (!Close .)*
 
 EndPart =
-    Open __ "END"i __ Comment? Close
+    Open __ "END"i __ Comment? Close { return text(); }
 
 ElsePart =
-    Open __ "ELSE"i __ Comment? Close layer: Layer? {return layer}
+    text:(Open __ "ELSE"i __ Comment? Close { return text(); })
+    layer: Layer?
+        { return {layer, text} }
 
-BracketsExpr = "(" __ expr:Expression __ ")" {return expr}
+BracketsExpr = "(" __ expr:Expression __ ")"
+    { return expr }
 
 Expression =
 	ExprBinary
@@ -158,26 +238,25 @@ Expression =
     / BracketsExpr
     / Id
 
-
 ExprBinary =
     left:(BracketsExpr / Id) __ operator:BinaryOperators __ right:(Expression / Id)
-        {return {type: 'expression', left, right, operator, loc: location(), text: text()} }
+        { return {type: 'expression', left, right, operator} }
 
 ExprBinaryLocalVar =
     left:LocalVar __ operator:BinaryLocalVarOperators __ right:(Expression / Id)
- 		{return {type: 'expression', left, right, operator, loc: location(), text: text()}}
+ 		{ return {type: 'expression', left, right, operator} }
 
 ExprPrefixUnary =
     operator:PrefixUnaryShortSetOperators __ right:(Expression / Id)
-        {return {type: 'expression', right, operator, loc: location(), text: text()}}
+        { return {type: 'expression', right, operator} }
 
 ExprPrefixUnaryLocalVar =
     operator:PrefixUnaryLocalVarOperators __ right:LocalVar
-    	{return {type: 'expression', right, operator, loc: location(), text: text()}}
+    	{ return {type: 'expression', right, operator} }
 
 ExprPostfixUnaryLocalVar =
     left:LocalVar __ operator:PostfixUnaryLocalVarOperators
-    	{return {type: 'expression', left, operator, loc: location(), text: text()}}
+    	{ return {type: 'expression', left, operator} }
 
 MultiExpression = "(" first:Expression tail:(__ "," __ arg:Expression {return arg;})* ")"
     	{
@@ -185,7 +264,7 @@ MultiExpression = "(" first:Expression tail:(__ "," __ arg:Expression {return ar
         for (let i of tail) {
         	arr.push(i)
         };
-        return {type: 'multi_expression', value:arr, loc: location(), text: text()};
+        return {type: 'multi_expression', value:arr};
     }
 	/ first:Expression tail:(__ "," __ arg:Expression {return arg;})*
     	{
@@ -193,9 +272,8 @@ MultiExpression = "(" first:Expression tail:(__ "," __ arg:Expression {return ar
         for (let i of tail) {
         	arr.push(i)
         };
-        return  {type: 'multi_expression', value:arr, loc: location(), text: text()};
+        return  {type: 'multi_expression', value:arr};
     }
-
 
 BinaryOperators = "===" / "!==" / "==" / "!=" /  "<"
 	/ "<=" / ">" / ">=" / "%" / OpAnd / OpOr / "+" / "-" / "*" / "/"
@@ -214,7 +292,8 @@ OpOr = "||" {return '||'} / "OR"i {return '&&'}
 
 OpNot = "!" {return '!'} / "NOT"i {return '!'}
 
-LocalVar = "`" chars:LocalVarCharacter* "`" {return { type: "local_var_name", value: chars.join("") };}
+LocalVar = "`" chars:LocalVarCharacter* "`"
+    { return { type: "local_var", value: chars.join("") }; }
 
 StringLiteral "string"
   = '"' chars:DoubleStringCharacter* '"' {
@@ -279,7 +358,7 @@ KEY_WHILE = "WHILE"i
 
 KEY_DO = "DO"i
 
-KEY_SCOPE = "SCOPE"i
+KEY_SET = "SET"i
 
 DecimalDigit
   = [0-9]

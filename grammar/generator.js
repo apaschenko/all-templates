@@ -15,7 +15,7 @@ const grammar = fs.readFileSync('./grammar.pegjs');
 const parser = peg.generate(grammar.toString(), {output: 'source', trace: true, format: 'commonjs'});
 
 fs.writeFileSync('../lib/parser.js', parser); //return;
-const layer = '{{if a1.z18+b2["ggg"]}} cde {{end}}';
+const layer = '{{ each `locvar` of aaa.bbb }} kkk {{with}} kkk  {{empty}} empty {{idr #bgt}} els {{end}}';
 //             1234567890123456
 //const layer  =`
 //{{for a;;}} nm {{end}}`;
