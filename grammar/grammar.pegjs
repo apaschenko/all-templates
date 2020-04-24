@@ -4,14 +4,14 @@
     ];
 
     function buildEachTag(open, value, empty, emptyLayer, delimiter, delimiterLayer, end) {
-        const text = [ open.text ];
+        const txt = [ open.txt ];
         if (empty) {
-            text.push(empty);
+            txt.push(empty);
         }
         if (delimiter) {
-            text.push(delimiter);
+            txt.push(delimiter);
         }
-        text.push(end);
+        txt.push(end);
         return {
             type: 'tag_each',
             variable: open.variable,
@@ -19,7 +19,7 @@
             value,
             empty: emptyLayer,
             delimiter: delimiterLayer,
-            text
+            txt
         }
     }
 }
@@ -37,16 +37,17 @@ Close = "}}"
 RawText = txt: $ (!Open .)+ { return {type: 'text', value: txt} }
 
 
-Id = WithoutParsing
-	/ first:IdPart tail:(__ "." __ tail:IdPart {return tail} / __ "[" __ tail:Expression __ "]" {return tail})* {
-    const arr=[first];
-    if (tail) {
-      for (let i of tail) {
-          arr.push(i)
-      };
-    }
-    return { type: 'id', value:arr };
-}
+Id = Partial
+	/ first:IdPart tail:(__ "." __ tail:IdPart {return tail} / __ "[" __ tail:Expression __ "]" {return tail})*
+        {
+            const arr=[first];
+            if (tail) {
+              for (let i of tail) {
+                  arr.push(i)
+              };
+            }
+            return { type: 'id', value:arr };
+        }
 
 IdPart = FunctionDescriptor / StringLiteral / LocalVar / Pointer / Lexeme
 
@@ -67,7 +68,8 @@ FuncListArgs = first:Id tail:( __ "," __ arg:Id {return arg;})*
 Pointer = ASTERISK __ "(" __ value:Id __ ")" {return {type: 'pointer', value}}
 	/ ASTERISK __ value:Id                   {return {type: 'pointer', value}}
 
-WithoutParsing = "=" __ arg:Id {return {type: 'without_parsing', value: arg}}
+Partial = "@" __ arg:Id
+    {return {type: 'need_to_parse', value: arg}}
 
 Lexeme =
 	lex:(DecimalDigit)+
@@ -82,9 +84,9 @@ Tag = TagIf
     / TagFor
     / TagEach
     / TagWhile
-//    / TagDoWhile
+    / TagDoWhile
     / TagSet
-    / TagComment
+    / TagEmpty
 
 TagIf =
 	open: TagIfOpen
@@ -92,23 +94,23 @@ TagIf =
     falsePath: ElsePart?
     end: EndPart
 		{
-		    text = [open.text];
+		    let txt = [open.txt];
 		    if (falsePath) {
-		        text.push(falsePath.text);
+		        txt.push(falsePath.txt);
 		    }
-		    text.push(end);
+		    txt.push(end);
 		    return {
 		        type: 'tag_if',
 		        value: open.value,
 		        truePath: truePath || [],
 		        falsePath: falsePath && falsePath.layer || [],
-		        text
+		        txt
             }
         }
 
 TagIfOpen =
     Open __ KEY_IF _ value:Expression __ Comment? Close
-        { return {value, text: text()} }
+        { return {value, txt: text()} }
 
 TagUnless =
 	open: TagUnlessOpen
@@ -116,27 +118,27 @@ TagUnless =
     truePath: ElsePart?
     end: EndPart
     	{
-            text = [open.text];
+            let txt = [open.txt];
             if (truePath) {
-                text.push(truePath.text);
+                txt.push(truePath.txt);
             }
-            text.push(end);
+            txt.push(end);
     	    return {
     	        type: 'tag_if',
     	        value: open.value,
     	        truePath: truePath && truePath.value || [],
     	        falsePath: falsePath || [],
-    	        text
+    	        txt
             }
         }
 
 TagUnlessOpen =
     Open __ KEY_UNLESS _ value:Expression __ Comment? Close
-        { return {value, text: text()} }
+        { return {value, txt: text()} }
 
 TagInsert =
 	Open __ expr:(Expression) __ Comment? Close
-    	{ return {type: 'tag_insert', value: expr, text: text()} }
+    	{ return {type: 'tag_insert', value: expr, txt: text()} }
 
 TagFor =
     open: ( TagForOpenFirstForm / TagForOpenSecondForm )
@@ -144,7 +146,7 @@ TagFor =
     end: EndPart
         {
             return {
-                type: 'tag_for', init: open.init, cond: open.cond, after: open.after, value, text: [open.text, end]
+                type: 'tag_for', init: open.init, cond: open.cond, after: open.after, value, txt: [open.txt, end]
             }
         }
 
@@ -155,7 +157,7 @@ TagForOpenFirstForm =
     __ after:MultiExpression? __ ")" __
     Comment?
     Close
-        { return {init, cond, after, text: text()} }
+        { return {init, cond, after, txt: text()} }
 
 TagForOpenSecondForm =
     Open
@@ -164,12 +166,12 @@ TagForOpenSecondForm =
     __ after:MultiExpression? __
     Comment?
     Close
-        { return {init, cond, after, text: text()} }
+        { return {init, cond, after, txt: text()} }
 
 
 TagEachOpen =
     Open __ KEY_EACH _ variable:LocalVar _ KEY_OF _ source:Id __ Comment? Close
-	    { return {variable, source, text: text()} }
+	    { return {variable, source, txt: text()} }
 
 TagEachFistForm =
     open: TagEachOpen
@@ -198,22 +200,22 @@ TagEachSecondForm =
 TagEach = TagEachFistForm / TagEachSecondForm
 
 TagWhile =
-    open: (Open __ KEY_WHILE _ expr:MultiExpression __ Comment? Close { return {expr, text: text()} })
+    open: (Open __ KEY_WHILE _ expr:MultiExpression __ Comment? Close { return {expr, txt: text()} })
 	layer: Layer
 	end: EndPart
-		{ return {type: 'tag_while', expression: open.expr, layer, text: [open.text, end]} }
+		{ return {type: 'tag_while', expression: open.expr, layer, txt: [open.txt, end]} }
 
 TagDoWhile =
     open: (Open __ KEY_DO __ Comment? Close { return text(); })
     layer: Layer
-	whilePart: (Open __ KEY_WHILE _ expr:MultiExpression __ Comment? Close { return {expr, text: text()} })
-		{ return {type: 'tag_do_while', expression: whilePart.expr, layer, text: [open, whilePart.text]} }
+	whilePart: (Open __ KEY_WHILE _ expr:MultiExpression __ Comment? Close { return {expr, txt: text()} })
+		{ return {type: 'tag_do_while', expression: whilePart.expr, layer, txt: [open, whilePart.txt]} }
 
 TagSet =
     Open __ KEY_SET _ expression:MultiExpression __ Comment? Close
-    	{ return {type: 'tag_set', expression, text: text()} }
+    	{ return {type: 'tag_set', expression, txt: text()} }
 
-TagComment = Open __ Comment __ Close
+TagEmpty = Open __ Comment? __ Close
 	{ return {type: 'tag_comment'}; }
 
 Comment = HASH (!Close .)*
@@ -222,9 +224,9 @@ EndPart =
     Open __ "END"i __ Comment? Close { return text(); }
 
 ElsePart =
-    text:(Open __ "ELSE"i __ Comment? Close { return text(); })
+    txt:(Open __ "ELSE"i __ Comment? Close { return text(); })
     layer: Layer?
-        { return {layer, text} }
+        { return {layer, txt} }
 
 BracketsExpr = "(" __ expr:Expression __ ")"
     { return expr }
@@ -334,7 +336,7 @@ LineTerminatorSequence "end of line"
   / "\u2028"
   / "\u2029"
 
-RESTRICTED_IN_LEXEMES = [#,.;^()\[\'\"\]!*=+\-><]
+RESTRICTED_IN_LEXEMES = [#,.;^()\[\'\"\]!*=+\-><@]
 
 KEY_IF = "IF"i
 
