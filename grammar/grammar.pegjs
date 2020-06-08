@@ -68,13 +68,13 @@ FuncListArgs = first:Id tail:( __ "," __ arg:Id {return arg;})*
     }
 
 
-Pointer = ASTERISK __ "(" __ value:Id __ ")" {return {type: 'pointer', value}}
-	/ ASTERISK __ value:Id                   {return {type: 'pointer', value}}
+Pointer = CARET __ "(" __ value:Id __ ")" {return {type: 'pointer', value}}
+	/ CARET __ value:Id                   {return {type: 'pointer', value}}
 
 
 Lexeme =
 	lex:(DecimalDigit)+
-    	{return {type: 'integer', value: lex.join('')}}
+    	{return {type: 'integer', value: parseInt(lex.join(''), 10)}}
     / lex: $ (! (Close / BLANK / RESTRICTED_IN_LEXEMES ) .)+
         & {return !keywords.includes(lex.toLowerCase())}
 		{return {type: 'regular', value: lex}}
@@ -217,7 +217,7 @@ TagSet =
     	{ return {type: 'tag_set', expression, txt: text()} }
 
 TagEmpty = Open __ Comment? __ Close
-	{ return {type: 'tag_comment'}; }
+	{ return {type: 'tag_empty'}; }
 
 Comment = HASH (!Close .)*
 
@@ -291,7 +291,7 @@ PostfixUnaryLocalVarOperators = op:("++" / "--") {return 'postfix' + op}
 
 OpAnd = "&&" {return '&&'} / "AND"i {return '&&'}
 
-OpOr = "||" {return '||'} / "OR"i {return '&&'}
+OpOr = "||" {return '||'} / "OR"i {return '||'}
 
 OpNot = "!" {return '!'} / "NOT"i {return '!'}
 
