@@ -37,8 +37,10 @@ Close = "}}"
 RawText = txt: $ (!Open .)+ { return {type: 'text', value: txt} }
 
 
-Id = Partial
-	/ first:IdPart tail:(__ "." __ tail:IdPart {return tail} / __ "[" __ tail:Expression __ "]" {return tail})*
+Id =
+	partial: "@"?
+	first: IdPart
+	tail: (__ "." __ tail:IdPart {return tail} / __ "[" __ tail:Expression __ "]" {return tail})*
         {
             const arr=[first];
             if (tail) {
@@ -46,7 +48,8 @@ Id = Partial
                   arr.push(i)
               };
             }
-            return { type: 'id', value:arr };
+            const result = { type: 'id', value:arr };
+            return partial ? {type: 'need_to_parse', value: result} : result;
         }
 
 IdPart = FunctionDescriptor / StringLiteral / LocalVar / Pointer / Lexeme
@@ -68,8 +71,6 @@ FuncListArgs = first:Id tail:( __ "," __ arg:Id {return arg;})*
 Pointer = ASTERISK __ "(" __ value:Id __ ")" {return {type: 'pointer', value}}
 	/ ASTERISK __ value:Id                   {return {type: 'pointer', value}}
 
-Partial = "@" __ arg:Id
-    {return {type: 'need_to_parse', value: arg}}
 
 Lexeme =
 	lex:(DecimalDigit)+

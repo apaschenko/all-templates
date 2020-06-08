@@ -1,6 +1,6 @@
 /**
  * Lib "all-templates"
- * Placeholder parser
+ * parser generator
  *
  * by Alex Paschenko <past.first@gmail.com>
  * GPL-3.0
