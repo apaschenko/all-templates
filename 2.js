@@ -1,5 +1,5 @@
 
-const t = require('./index').render;
+const t = require('./lib/parser');
 
 const data = {
     start: ' as {{ tt }} qwerty ',
@@ -7,4 +7,4 @@ const data = {
 };
 
 
-console.log(t(data));
+console.log(JSON.stringify(t.parse(data.start),  null, 4));

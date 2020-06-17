@@ -34,11 +34,11 @@ Element  = RawText / Tag
 Open = "{{"
 Close = "}}"
 
-RawText = txt: $ (!Open .)+ { return {type: 'text', value: txt} }
+RawText = txt: $ (!Open .)+ { return {type: 'text', value: txt } }
 
 
 Id =
-	partial: "@"?
+	partial: "="?
 	first: IdPart
 	tail: (__ "." __ tail:IdPart {return tail} / __ "[" __ tail:Expression __ "]" {return tail})*
         {
@@ -68,8 +68,8 @@ FuncListArgs = first:Id tail:( __ "," __ arg:Id {return arg;})*
     }
 
 
-Pointer = CARET __ "(" __ value:Id __ ")" {return {type: 'pointer', value}}
-	/ CARET __ value:Id                   {return {type: 'pointer', value}}
+Pointer = "@" __ "(" __ value:Id __ ")" {return {type: 'pointer', value}}
+	/ "@" __ value:Id                   {return {type: 'pointer', value}}
 
 
 Lexeme =
