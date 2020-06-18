@@ -38,7 +38,7 @@ RawText = txt: $ (!Open .)+ { return {type: 'text', value: txt } }
 
 
 Id =
-	partial: "="?
+	partial: "~"?
 	first: IdPart
 	tail: (__ "." __ tail:IdPart {return tail} / __ "[" __ tail:Expression __ "]" {return tail})*
         {
@@ -52,11 +52,12 @@ Id =
             return partial ? {type: 'need_to_parse', value: result} : result;
         }
 
-IdPart = FunctionDescriptor / StringLiteral / LocalVar / Pointer / Lexeme
+IdPart = FunctionDescriptor / QuotedIdPart / Lexeme
 
 FunctionDescriptor =
-	fname:(StringLiteral / Lexeme) __ "("__ args: FuncListArgs? __ ")"
+	fname:(QuotedIdPart / Lexeme) __ "("__ args: FuncListArgs? __ ")"
     	{return {type: 'function', value: fname, args: args || []}}
+
 
 FuncListArgs = first:Id tail:( __ "," __ arg:Id {return arg;})*
 	{
@@ -68,16 +69,147 @@ FuncListArgs = first:Id tail:( __ "," __ arg:Id {return arg;})*
     }
 
 
-Pointer = "@" __ "(" __ value:Id __ ")" {return {type: 'pointer', value}}
-	/ "@" __ value:Id                   {return {type: 'pointer', value}}
+QuotedIdPart = "`" chars:QuotedIdPartCharacter* "`"
+    { return { type: "regular", value: chars.join("") }; }
 
 
 Lexeme =
-	lex:(DecimalDigit)+
-    	{return {type: 'integer', value: parseInt(lex.join(''), 10)}}
-    / lex: $ (! (Close / BLANK / RESTRICTED_IN_LEXEMES ) .)+
+    lex: $ (! (Close / BLANK / RESTRICTED_IN_LEXEMES ) .)+
         & {return !keywords.includes(lex.toLowerCase())}
 		{return {type: 'regular', value: lex}}
+
+
+LocalVar =
+    "@" val:Lexeme {return {type: 'local_var', value: val.value}}
+
+QualifiedLocalVar =
+    locVar:LocalVar
+    	tail: (__ "." __ tail:IdPart {return tail} / __ "[" __ tail:Expression __ "]" {return tail})*
+            {
+                const arr=[locVar];
+                if (tail) {
+                  for (let i of tail) {
+                      arr.push(i)
+                  };
+                }
+                return { type: 'qualified_local_var', value:arr };
+            }
+
+
+AbstractId = QualifiedLocalVar / Id
+
+
+BracketsExpr = "(" __ expr:Expression __ ")"
+    { return expr }
+
+
+Expression =
+	ExprBinaryGetter
+	/ ExprPrefixUnaryGetter
+	/ ExprBinarySetter
+	/ ExprPrefixUnarySetter
+	/ ExprPostfixUnarySetter
+    / BracketsExpr
+    / QualifiedLocalVar
+    / Literal
+    / Id
+
+
+GetterSource = Expression
+
+ExprBinaryGetter =
+    left:(BracketsExpr / Literal / AbstractId) __ operator:OpBinaryGetter __ right:GetterSource
+        { return {type: 'expression_get', left, right, operator} }
+
+ExprPrefixUnaryGetter =
+    operator:OpPrefixUnaryGetter __ right:GetterSource
+        { return {type: 'expression_get', right, operator} }
+
+ExprBinarySetter =
+    left:AbstractId __ operator:OpBinarySetter __ right:GetterSource
+ 		{ return {type: 'expression_set', left, right, operator} }
+
+ExprPrefixUnarySetter =
+    operator:OpPrefixUnarySetter __ right:AbstractId
+    	{ return {type: 'expression_set', right, operator} }
+
+ExprPostfixUnarySetter =
+    left:AbstractId __ operator:OpPostfixUnarySetter
+    	{ return {type: 'expression_set', left, operator} }
+
+MultiExpression =
+    "(" first:Expression tail:(__ "," __ arg:Expression {return arg;})* ")"
+    	{
+            const arr = [first];
+            for (let i of tail) {
+                arr.push(i)
+            };
+            return {type: 'multi_expression', value:arr};
+        }
+	/ first:Expression tail:(__ "," __ arg:Expression {return arg;})*
+    	{
+            const arr = [first];
+            for (let i of tail) {
+                arr.push(i)
+            };
+            return  {type: 'multi_expression', value:arr};
+        }
+
+OpBinaryGetter = "===" / "!==" / "==" / "!=" /  "<"
+	/ "<=" / ">" / ">=" / "%" / OpAnd / OpOr / "+" / "-" / "*" / "/"
+
+OpBinarySetter = "+=" / "-=" / "="
+
+OpPrefixUnaryGetter = op:("+" / "-" / OpNot) {return 'prefix' + op}
+
+OpPrefixUnarySetter = op:("++" / "--") {return 'prefix' + op}
+
+OpPostfixUnarySetter = op:("++" / "--") {return 'postfix' + op}
+
+OpAnd = "&&" {return '&&'} / _ "AND"i _ {return '&&'}
+
+OpOr = "||" {return '||'} / _ "OR"i _ {return '||'}
+
+OpNot = "!" {return '!'} / _ "NOT"i _ {return '!'}
+
+
+Literal = StringLiteral / NumberLiteral
+
+
+StringLiteral "string"
+  = '"' chars:DoubleStringCharacter* '"' {
+      return { type: "string_literal", value: chars.join("") };
+    }
+  / "'" chars:SingleStringCharacter* "'" {
+      return { type: "string_literal", value: chars.join("") };
+    }
+
+DoubleStringCharacter
+  = !('"' / ESCAPE_SYMBOL / LineTerminator) SourceCharacter { return text(); }
+  / ESCAPE_SYMBOL sequence:(ESCAPE_SYMBOL / '"') { return sequence; }
+  / LineContinuation
+
+SingleStringCharacter
+  = !("'" / ESCAPE_SYMBOL / LineTerminator) SourceCharacter { return text(); }
+  / ESCAPE_SYMBOL sequence:(ESCAPE_SYMBOL / "'") { return sequence; }
+  / LineContinuation
+
+
+NumberLiteral =
+    whole_part:(DecimalDigit)+
+    fraction: ( DOT DecimalDigit+ )?
+    exponent: ( "e"i [+-]? DecimalDigit+ )?
+        {
+          	return {
+          	    type: 'literal',
+          	    value: (fraction || exponent) ? parseFloat(text()) : parseInt(text(), 10)
+            }
+        }
+
+QuotedIdPartCharacter
+  = !('`' / ESCAPE_SYMBOL / LineTerminator / RESTRICTED_IN_LEXEMES ) SourceCharacter { return text(); }
+  / ESCAPE_SYMBOL sequence:(ESCAPE_SYMBOL / '`') { return sequence; }
+  / LineContinuation
 
 Tag = TagIf
     / TagUnless
@@ -171,7 +303,7 @@ TagForOpenSecondForm =
 
 
 TagEachOpen =
-    Open __ KEY_EACH _ variable:LocalVar _ KEY_OF _ source:Id __ Comment? Close
+    Open __ KEY_EACH _ variable:QuotedIdPart _ KEY_OF _ source:Id __ Comment? Close
 	    { return {variable, source, txt: text()} }
 
 TagEachFistForm =
@@ -229,98 +361,6 @@ ElsePart =
     layer: Layer?
         { return {layer, txt} }
 
-BracketsExpr = "(" __ expr:Expression __ ")"
-    { return expr }
-
-Expression =
-	ExprBinary
-	/ ExprBinaryLocalVar
-	/ ExprPrefixUnary
-	/ ExprPrefixUnaryLocalVar
-	/ ExprPostfixUnaryLocalVar
-    / BracketsExpr
-    / Id
-
-ExprBinary =
-    left:(BracketsExpr / Id) __ operator:BinaryOperators __ right:(Expression / Id)
-        { return {type: 'expression', left, right, operator} }
-
-ExprBinaryLocalVar =
-    left:LocalVar __ operator:BinaryLocalVarOperators __ right:(Expression / Id)
- 		{ return {type: 'expression', left, right, operator} }
-
-ExprPrefixUnary =
-    operator:PrefixUnaryShortSetOperators __ right:(Expression / Id)
-        { return {type: 'expression', right, operator} }
-
-ExprPrefixUnaryLocalVar =
-    operator:PrefixUnaryLocalVarOperators __ right:LocalVar
-    	{ return {type: 'expression', right, operator} }
-
-ExprPostfixUnaryLocalVar =
-    left:LocalVar __ operator:PostfixUnaryLocalVarOperators
-    	{ return {type: 'expression', left, operator} }
-
-MultiExpression = "(" first:Expression tail:(__ "," __ arg:Expression {return arg;})* ")"
-    	{
-    	const arr = [first];
-        for (let i of tail) {
-        	arr.push(i)
-        };
-        return {type: 'multi_expression', value:arr};
-    }
-	/ first:Expression tail:(__ "," __ arg:Expression {return arg;})*
-    	{
-    	const arr = [first];
-        for (let i of tail) {
-        	arr.push(i)
-        };
-        return  {type: 'multi_expression', value:arr};
-    }
-
-BinaryOperators = "===" / "!==" / "==" / "!=" /  "<"
-	/ "<=" / ">" / ">=" / "%" / OpAnd / OpOr / "+" / "-" / "*" / "/"
-
-BinaryLocalVarOperators = "+=" / "-=" / "="
-
-PrefixUnaryShortSetOperators = op:("+" / "-" / OpNot) {return 'prefix' + op}
-
-PrefixUnaryLocalVarOperators = op:("++" / "--") {return 'prefix' + op}
-
-PostfixUnaryLocalVarOperators = op:("++" / "--") {return 'postfix' + op}
-
-OpAnd = "&&" {return '&&'} / "AND"i {return '&&'}
-
-OpOr = "||" {return '||'} / "OR"i {return '||'}
-
-OpNot = "!" {return '!'} / "NOT"i {return '!'}
-
-LocalVar = "`" chars:LocalVarCharacter* "`"
-    { return { type: "local_var", value: chars.join("") }; }
-
-StringLiteral "string"
-  = '"' chars:DoubleStringCharacter* '"' {
-      return { type: "regular", subtype: "string", value: chars.join("") };
-    }
-  / "'" chars:SingleStringCharacter* "'" {
-      return { type: "regular", subtype: "string", value: chars.join("") };
-    }
-
-DoubleStringCharacter
-  = !('"' / ESCAPE_SYMBOL / LineTerminator) SourceCharacter { return text(); }
-  / ESCAPE_SYMBOL sequence:(ESCAPE_SYMBOL / '"') { return sequence; }
-  / LineContinuation
-
-SingleStringCharacter
-  = !("'" / ESCAPE_SYMBOL / LineTerminator) SourceCharacter { return text(); }
-  / ESCAPE_SYMBOL sequence:(ESCAPE_SYMBOL / "'") { return sequence; }
-  / LineContinuation
-
-LocalVarCharacter
-  = !('`' / ESCAPE_SYMBOL / LineTerminator / RESTRICTED_IN_LEXEMES ) SourceCharacter { return text(); }
-  / ESCAPE_SYMBOL sequence:(ESCAPE_SYMBOL / '`') { return sequence; }
-  / LineContinuation
-
 LineContinuation
   = ESCAPE_SYMBOL LineTerminatorSequence { return ""; }
 
@@ -337,7 +377,7 @@ LineTerminatorSequence "end of line"
   / "\u2028"
   / "\u2029"
 
-RESTRICTED_IN_LEXEMES = [#,.;^()\[\'\"\]!*=+\-><@]
+RESTRICTED_IN_LEXEMES = [#,.;^()\[\'\"\]!*=+\-><@~]
 
 KEY_IF = "IF"i
 

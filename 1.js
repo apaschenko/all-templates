@@ -29,5 +29,18 @@ async function aaa () {
     console.log('\n RES:\n', `"${res}"`);
 }
 
-aaa().then(() => {console.log('Finished!')}, (e) => console.log(e));
+function getTime() {
+    const now = process.hrtime();
+    return now[0] * 1000000 + Math.floor(now[1] / 1000);
+}
+
+const startTime = getTime();
+
+aaa().then(
+    () => {
+        const endTime = getTime();
+        console.log(`Finished! (${endTime - startTime} mcs)`)
+    },
+    (e) => console.log(e)
+);
 setTimeout(function() {}, 3000)
