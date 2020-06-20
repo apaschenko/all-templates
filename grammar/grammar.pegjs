@@ -37,8 +37,9 @@ Close = "}}"
 RawText = txt: $ (!Open .)+ { return {type: 'text', value: txt } }
 
 
-DataPointer =
+Pointer =
 	partial: "~"?
+	isLocalVar: "@"?
 	first: PointerPart
 	tail: (
 	    __ "."
@@ -53,18 +54,19 @@ DataPointer =
                   arr.push(i)
               };
             }
-            const result = { type: 'pointer', source: 'data', value:arr };
+            const result = { type: 'pointer', source: isLocalVar? 'local_vars' : 'data', value:arr };
             return partial ? {type: 'need_to_parse', value: result} : result;
+
         }
 
 PointerPart = FunctionDescriptor / QuotedPointerPart / Lexeme
 
 FunctionDescriptor =
-	fname:(QuotedPointerPart / Lexeme) __ "("__ args: FuncListArgs? __ ")"
-    	{return {type: 'function', value: fname, args: args || []}}
+	fName:(QuotedPointerPart / Lexeme) __ "("__ args: FuncListArgs? __ ")"
+    	{return {type: 'function', value: fName, args: args || []}}
 
 
-FuncListArgs = first:AbstractPointer tail:( __ "," __ arg:AbstractPointer {return arg;})*
+FuncListArgs = first:Expression tail:( __ "," __ arg:Expression {return arg;})*
 	{
     	const arr = [first];
         for (let i of tail) {
@@ -84,31 +86,6 @@ Lexeme =
 		{return {type: 'regular', value: lex}}
 
 
-LocalVar =
-    "@" val:Lexeme {return {type: 'local_var', value: val.value}}
-
-LocalVarPointer =
-    locVar:LocalVar
-    tail: (
-        __ "." __
-        tail:PointerPart {return tail}
-        / __ "[" __ tail:Expression __ "]" {return {type: 'square_brackets', value: tail}}
-    )*
-        {
-            const arr=[locVar];
-            if (tail) {
-            console.log('=====> TAIL IS: \n', JSON.stringify(tail, null, 4), '\n=========')
-              for (let i of tail) {
-                  arr.push(i)
-              };
-            }
-            return { type: 'pointer', source: 'local_vars', value:arr };
-        }
-
-
-AbstractPointer = LocalVarPointer / DataPointer
-
-
 BracketsExpr = "(" __ expr:Expression __ ")"
     { return expr }
 
@@ -117,34 +94,37 @@ Expression =
 	ExprBinaryGetter
 	/ ExprPrefixUnaryGetter
 	/ ExprBinarySetter
+	/ ExprBinaryGetterSetter
 	/ ExprPrefixUnarySetter
 	/ ExprPostfixUnarySetter
     / BracketsExpr
     / Literal
-    / AbstractPointer
+    / Pointer
 
-
-GetterSource = Expression
 
 ExprBinaryGetter =
-    left:(BracketsExpr / Literal / AbstractPointer) __ operator:OpBinaryGetter __ right:GetterSource
-        { return {type: 'expression_get', left, right, operator} }
+    left:(BracketsExpr / Literal / Pointer) __ operator:OpBinaryGetter __ right:Expression
+        { return {type: 'expression', sources: ['left', 'right'], left, right, operator} }
 
 ExprPrefixUnaryGetter =
-    operator:OpPrefixUnaryGetter __ right:GetterSource
-        { return {type: 'expression_get', right, operator} }
+    operator:OpPrefixUnaryGetter __ right:Expression
+        { return {type: 'expression', sources: ['right'], right, operator} }
 
 ExprBinarySetter =
-    left:AbstractPointer __ operator:OpBinarySetter __ right:GetterSource
- 		{ return {type: 'expression_set', left, right, operator} }
+    left:Pointer __ operator:OpBinarySetter __ right:Expression
+ 		{ return {type: 'expression', sources: ['right'], left, right, operator} }
+
+ExprBinaryGetterSetter =
+    operator:OpBinaryGetterSetter __ right:Pointer
+    	{ return {type: 'expression', sources: ['left', 'right'], right, operator} }
 
 ExprPrefixUnarySetter =
-    operator:OpPrefixUnarySetter __ right:AbstractPointer
-    	{ return {type: 'expression_set', right, operator} }
+    operator:OpPrefixUnarySetter __ right:Pointer
+    	{ return {type: 'expression', sources: [], right, operator} }
 
 ExprPostfixUnarySetter =
-    left:AbstractPointer __ operator:OpPostfixUnarySetter
-    	{ return {type: 'expression_set', left, operator} }
+    left:Pointer __ operator:OpPostfixUnarySetter
+    	{ return {type: 'expression', sources: [], left, operator} }
 
 MultiExpression =
     "(" first:Expression tail:(__ "," __ arg:Expression {return arg;})* ")"
@@ -167,13 +147,15 @@ MultiExpression =
 OpBinaryGetter = "===" / "!==" / "==" / "!=" /  "<"
 	/ "<=" / ">" / ">=" / "%" / OpAnd / OpOr / "+" / "-" / "*" / "/"
 
-OpBinarySetter = "+=" / "-=" / "="
+OpBinarySetter = "="
 
-OpPrefixUnaryGetter = op:("+" / "-" / OpNot) {return 'prefix' + op}
+OpBinaryGetterSetter = "+=" / "-="
 
-OpPrefixUnarySetter = op:("++" / "--") {return 'prefix' + op}
+OpPrefixUnaryGetter = op:("+" / "-" / OpNot) {return 'prefix ' + op}
 
-OpPostfixUnarySetter = op:("++" / "--") {return 'postfix' + op}
+OpPrefixUnarySetter = op:("++" / "--") {return 'prefix ' + op}
+
+OpPostfixUnarySetter = op:("++" / "--") {return 'postfix ' + op}
 
 OpAnd = "&&" {return '&&'} / _ "AND"i _ {return '&&'}
 
@@ -312,7 +294,7 @@ TagForOpenSecondForm =
 
 
 TagEachOpen =
-    Open __ KEY_EACH _ variable:AbstractPointer _ KEY_OF _ source:Expression __ Comment? Close
+    Open __ KEY_EACH _ variable:Pointer _ KEY_OF _ source:Expression __ Comment? Close
 	    { return {variable, source, txt: text()} }
 
 TagEachFistForm =
