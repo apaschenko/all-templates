@@ -37,10 +37,15 @@ Close = "}}"
 RawText = txt: $ (!Open .)+ { return {type: 'text', value: txt } }
 
 
-Id =
+DataPointer =
 	partial: "~"?
-	first: IdPart
-	tail: (__ "." __ tail:IdPart {return tail} / __ "[" __ tail:Expression __ "]" {return tail})*
+	first: PointerPart
+	tail: (
+	    __ "."
+	    __ tail:PointerPart {return tail}
+	    / __ "[" __ tail:Expression __ "]"
+	        {return {type: 'square_brackets', value: tail}}
+    )*
         {
             const arr=[first];
             if (tail) {
@@ -48,18 +53,18 @@ Id =
                   arr.push(i)
               };
             }
-            const result = { type: 'id', value:arr };
+            const result = { type: 'pointer', source: 'data', value:arr };
             return partial ? {type: 'need_to_parse', value: result} : result;
         }
 
-IdPart = FunctionDescriptor / QuotedIdPart / Lexeme
+PointerPart = FunctionDescriptor / QuotedPointerPart / Lexeme
 
 FunctionDescriptor =
-	fname:(QuotedIdPart / Lexeme) __ "("__ args: FuncListArgs? __ ")"
+	fname:(QuotedPointerPart / Lexeme) __ "("__ args: FuncListArgs? __ ")"
     	{return {type: 'function', value: fname, args: args || []}}
 
 
-FuncListArgs = first:Id tail:( __ "," __ arg:Id {return arg;})*
+FuncListArgs = first:AbstractPointer tail:( __ "," __ arg:AbstractPointer {return arg;})*
 	{
     	const arr = [first];
         for (let i of tail) {
@@ -69,7 +74,7 @@ FuncListArgs = first:Id tail:( __ "," __ arg:Id {return arg;})*
     }
 
 
-QuotedIdPart = "`" chars:QuotedIdPartCharacter* "`"
+QuotedPointerPart = "`" chars:QuotedPointerPartCharacter* "`"
     { return { type: "regular", value: chars.join("") }; }
 
 
@@ -82,21 +87,26 @@ Lexeme =
 LocalVar =
     "@" val:Lexeme {return {type: 'local_var', value: val.value}}
 
-QualifiedLocalVar =
+LocalVarPointer =
     locVar:LocalVar
-    	tail: (__ "." __ tail:IdPart {return tail} / __ "[" __ tail:Expression __ "]" {return tail})*
-            {
-                const arr=[locVar];
-                if (tail) {
-                  for (let i of tail) {
-                      arr.push(i)
-                  };
-                }
-                return { type: 'qualified_local_var', value:arr };
+    tail: (
+        __ "." __
+        tail:PointerPart {return tail}
+        / __ "[" __ tail:Expression __ "]" {return {type: 'square_brackets', value: tail}}
+    )*
+        {
+            const arr=[locVar];
+            if (tail) {
+            console.log('=====> TAIL IS: \n', JSON.stringify(tail, null, 4), '\n=========')
+              for (let i of tail) {
+                  arr.push(i)
+              };
             }
+            return { type: 'pointer', source: 'local_vars', value:arr };
+        }
 
 
-AbstractId = QualifiedLocalVar / Id
+AbstractPointer = LocalVarPointer / DataPointer
 
 
 BracketsExpr = "(" __ expr:Expression __ ")"
@@ -110,15 +120,14 @@ Expression =
 	/ ExprPrefixUnarySetter
 	/ ExprPostfixUnarySetter
     / BracketsExpr
-    / QualifiedLocalVar
     / Literal
-    / Id
+    / AbstractPointer
 
 
 GetterSource = Expression
 
 ExprBinaryGetter =
-    left:(BracketsExpr / Literal / AbstractId) __ operator:OpBinaryGetter __ right:GetterSource
+    left:(BracketsExpr / Literal / AbstractPointer) __ operator:OpBinaryGetter __ right:GetterSource
         { return {type: 'expression_get', left, right, operator} }
 
 ExprPrefixUnaryGetter =
@@ -126,15 +135,15 @@ ExprPrefixUnaryGetter =
         { return {type: 'expression_get', right, operator} }
 
 ExprBinarySetter =
-    left:AbstractId __ operator:OpBinarySetter __ right:GetterSource
+    left:AbstractPointer __ operator:OpBinarySetter __ right:GetterSource
  		{ return {type: 'expression_set', left, right, operator} }
 
 ExprPrefixUnarySetter =
-    operator:OpPrefixUnarySetter __ right:AbstractId
+    operator:OpPrefixUnarySetter __ right:AbstractPointer
     	{ return {type: 'expression_set', right, operator} }
 
 ExprPostfixUnarySetter =
-    left:AbstractId __ operator:OpPostfixUnarySetter
+    left:AbstractPointer __ operator:OpPostfixUnarySetter
     	{ return {type: 'expression_set', left, operator} }
 
 MultiExpression =
@@ -206,7 +215,7 @@ NumberLiteral =
             }
         }
 
-QuotedIdPartCharacter
+QuotedPointerPartCharacter
   = !('`' / ESCAPE_SYMBOL / LineTerminator / RESTRICTED_IN_LEXEMES ) SourceCharacter { return text(); }
   / ESCAPE_SYMBOL sequence:(ESCAPE_SYMBOL / '`') { return sequence; }
   / LineContinuation
@@ -303,7 +312,7 @@ TagForOpenSecondForm =
 
 
 TagEachOpen =
-    Open __ KEY_EACH _ variable:QuotedIdPart _ KEY_OF _ source:Id __ Comment? Close
+    Open __ KEY_EACH _ variable:AbstractPointer _ KEY_OF _ source:Expression __ Comment? Close
 	    { return {variable, source, txt: text()} }
 
 TagEachFistForm =

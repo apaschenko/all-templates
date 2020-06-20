@@ -32,7 +32,7 @@ function getTime() {
 const startTime = getTime();
 const p = require('../lib/parser');
 let result;
-let repeats = 10000;
+let repeats = 1;
 for (let i=0; i<repeats; i++) {
     // result = p.parse(layer);
     try {
@@ -45,4 +45,5 @@ for (let i=0; i<repeats; i++) {
 
 //console.log(`${JSON.stringify(result, null, 4)}\n\n`);
 const endTime = getTime();
-console.log(`\nFinished! (${(endTime - startTime)/repeats} microseconds by repeat)`);
+console.log(JSON.stringify(require('../lib/parser').parse(layer), null, 4));
+console.log(`\nFinished! (${(endTime - startTime)/repeats} microseconds per iteration)`);
