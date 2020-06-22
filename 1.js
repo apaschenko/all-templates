@@ -3,9 +3,9 @@
 async function aaa () {
     let ii =    '0         10        20        30        40        50        60        70        80        90        100       110       120       130       140   ';
     let index = '01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345';
-    let start = 'q #  {{unless bbb #.fu(aaa, ccc)}}bbb {{}}{{ @ part }}is missing.{{ end }}{{ if tester}} tester is {{aaa}} true tester {{else}}if false {{end}} {{qwe # asset}} w';
+    let start = 'prev part of text {{1 + 2 / 3}} tail of text';
 
-    const res = await require('./index')
+    const res = await require('./index').run
         (
             start,
             {

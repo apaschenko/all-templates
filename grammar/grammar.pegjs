@@ -22,6 +22,17 @@
             txt
         }
     }
+
+    function buildPointer(partial, isLocalVar, first, tail) {
+        const arr=[first];
+        if (tail) {
+          for (let i of tail) {
+              arr.push(i)
+          };
+        }
+        const result = { type: 'pointer', source: isLocalVar? 'local_vars' : 'data', value:arr };
+        return partial ? {type: 'need_to_parse', value: result} : result;
+    }
 }
 
 
@@ -37,29 +48,36 @@ Close = "}}"
 RawText = txt: $ (!Open .)+ { return {type: 'text', value: txt } }
 
 
-Pointer =
+PointerGet =
 	partial: "~"?
 	isLocalVar: "@"?
-	first: PointerPart
+	first: PointerGetPart
 	tail: (
 	    __ "."
-	    __ tail:PointerPart {return tail}
+	    __ tail:PointerGetPart {return tail}
 	    / __ "[" __ tail:Expression __ "]"
 	        {return {type: 'square_brackets', value: tail}}
     )*
         {
-            const arr=[first];
-            if (tail) {
-              for (let i of tail) {
-                  arr.push(i)
-              };
-            }
-            const result = { type: 'pointer', source: isLocalVar? 'local_vars' : 'data', value:arr };
-            return partial ? {type: 'need_to_parse', value: result} : result;
-
+            return buildPointer(partial, isLocalVar, first, tail);
         }
 
-PointerPart = FunctionDescriptor / QuotedPointerPart / Lexeme
+PointerGetPart = FunctionDescriptor / QuotedPointerPart / Lexeme
+
+PointerSet =
+	isLocalVar: "@"?
+	first: PointerSetPart
+	tail: (
+	    __ "."
+	    __ tail:PointerSetPart {return tail}
+	    / __ "[" __ tail:Expression __ "]"
+	        {return {type: 'square_brackets', value: tail}}
+    )*
+        {
+            return buildPointer(false, isLocalVar, first, tail);
+        }
+
+PointerSetPart = QuotedPointerPart / Lexeme
 
 FunctionDescriptor =
 	fName:(QuotedPointerPart / Lexeme) __ "("__ args: FuncListArgs? __ ")"
@@ -91,40 +109,40 @@ BracketsExpr = "(" __ expr:Expression __ ")"
 
 
 Expression =
-	ExprBinaryGetter
-	/ ExprPrefixUnaryGetter
-	/ ExprBinarySetter
-	/ ExprBinaryGetterSetter
-	/ ExprPrefixUnarySetter
-	/ ExprPostfixUnarySetter
+	ExprBinaryGet
+	/ ExprPrefixUnaryGet
+	/ ExprBinarySet
+	/ ExprBinaryGetSet
+	/ ExprPrefixUnarySet
+	/ ExprPostfixUnarySet
     / BracketsExpr
     / Literal
-    / Pointer
+    / PointerGet
 
 
-ExprBinaryGetter =
-    left:(BracketsExpr / Literal / Pointer) __ operator:OpBinaryGetter __ right:Expression
+ExprBinaryGet =
+    left:(BracketsExpr / Literal / PointerGet) __ operator:OpBinaryGetter __ right:Expression
         { return {type: 'expression', sources: ['left', 'right'], left, right, operator} }
 
-ExprPrefixUnaryGetter =
+ExprPrefixUnaryGet =
     operator:OpPrefixUnaryGetter __ right:Expression
         { return {type: 'expression', sources: ['right'], right, operator} }
 
-ExprBinarySetter =
-    left:Pointer __ operator:OpBinarySetter __ right:Expression
+ExprBinarySet =
+    left:PointerSet __ operator:OpBinarySetter __ right:Expression
  		{ return {type: 'expression', sources: ['right'], left, right, operator} }
 
-ExprBinaryGetterSetter =
-    operator:OpBinaryGetterSetter __ right:Pointer
+ExprBinaryGetSet =
+    operator:OpBinaryGetterSetter __ right:PointerSet
     	{ return {type: 'expression', sources: ['left', 'right'], right, operator} }
 
-ExprPrefixUnarySetter =
-    operator:OpPrefixUnarySetter __ right:Pointer
-    	{ return {type: 'expression', sources: [], right, operator} }
+ExprPrefixUnarySet =
+    operator:OpPrefixUnarySetter __ right:PointerSet
+    	{ return {type: 'expression', sources: ['right'], right, operator} }
 
-ExprPostfixUnarySetter =
-    left:Pointer __ operator:OpPostfixUnarySetter
-    	{ return {type: 'expression', sources: [], left, operator} }
+ExprPostfixUnarySet =
+    left:PointerSet __ operator:OpPostfixUnarySetter
+    	{ return {type: 'expression', sources: ['left'], left, operator} }
 
 MultiExpression =
     "(" first:Expression tail:(__ "," __ arg:Expression {return arg;})* ")"
@@ -169,10 +187,10 @@ Literal = StringLiteral / NumberLiteral
 
 StringLiteral "string"
   = '"' chars:DoubleStringCharacter* '"' {
-      return { type: "string_literal", value: chars.join("") };
+      return { type: "literal", value: chars.join("") };
     }
   / "'" chars:SingleStringCharacter* "'" {
-      return { type: "string_literal", value: chars.join("") };
+      return { type: "literal", value: chars.join("") };
     }
 
 DoubleStringCharacter
@@ -294,7 +312,7 @@ TagForOpenSecondForm =
 
 
 TagEachOpen =
-    Open __ KEY_EACH _ variable:Pointer _ KEY_OF _ source:Expression __ Comment? Close
+    Open __ KEY_EACH _ variable:PointerSet _ KEY_OF _ source:Expression __ Comment? Close
 	    { return {variable, source, txt: text()} }
 
 TagEachFistForm =

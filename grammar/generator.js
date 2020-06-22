@@ -14,7 +14,13 @@ const fs = require('fs');
 const grammar = fs.readFileSync('./grammar.pegjs');
 const parser = peg.generate(
     grammar.toString(),
-    {output: 'source', /*trace: true, */optimize: 'speed', format: 'commonjs'}
+    {
+        output: 'source',
+        // trace: true,
+        optimize: 'speed',
+        format: 'commonjs',
+        allowedStartRules: ['Start', 'PointerGet', 'Layer']
+    }
 );
 
 fs.writeFileSync('../lib/parser.js', parser); //return;
