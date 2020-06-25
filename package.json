@@ -1,6 +1,6 @@
 {
-  "name": "all-templates",
-  "version": "0.1.13",
+  "name": "lenka",
+  "version": "0.2.1",
   "description": "JS Templates rendering",
   "main": "index.js",
   "scripts": {
