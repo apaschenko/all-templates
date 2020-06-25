@@ -1,7 +1,5 @@
 ### JS Template Engine 
 
-[![npm version](https://badge.fury.io/js/all-templates.svg)](https://badge.fury.io/js/all-templates)  [![Build Status](https://travis-ci.com/apaschenko/all-templates.svg?branch=master)](https://travis-ci.com/apaschenko/all-templates)
-
 Fast JS nested templates rendering.
 
 ##### The main goal 
@@ -11,7 +9,7 @@ Features | Implemented
  --- | ---
 Nested layers | yes
 Conditional rendering | yes
-Qualified names | not yet
+Qualified names | yes
 Configurability | yes
 The ability to store data anywhere | yes, with synchronous or asynchronous loading of its on demand.
 
@@ -38,7 +36,7 @@ const data = {
     last_name: 'Smith'
 };
 
-let result = await AT.render(template, data).catch( (e) => { console.log(e); } )
+let result = await AT.run(template, data).catch( (e) => { console.log(e); } )
 
 console.log(result);  // Hello, John Smith
 ```
@@ -51,7 +49,7 @@ const data = {
     last_name: 'Smith'
 };
 
-let result = await AT.render(data).catch( (e) => { console.log(e); } );
+let result = await AT.run(data).catch( (e) => { console.log(e); } );
 
 console.log(result);  // Hello, John Smith
 ```
@@ -71,7 +69,7 @@ const options = {
     start_name: 'top_layer'
 };
 
-let result = await AT.render(data, options).catch( (e) => { console.log(e); } );
+let result = await AT.run(data, options).catch( (e) => { console.log(e); } );
 
 console.log(result);  // Hello, John Smith
 ```
@@ -94,7 +92,7 @@ const options = {
     }
 };
 
-let result = await AT.render(data, options).catch( 
+let result = await AT.run(data, options).catch( 
     (e) => { console.log(e); } 
 );
 
@@ -111,7 +109,7 @@ const data = {
     action: 'Say'
 };
 
-let result = await AT.render(data).catch( (e) => { console.log(e); } );
+let result = await AT.run(data).catch( (e) => { console.log(e); } );
 
 console.log(result);  // What Does The Fox Say?
 ```
@@ -125,7 +123,7 @@ const data = {
     bully: false
 };
 
-let result = await AT.render(data).catch( (e) => { console.log(e); } );
+let result = await AT.run(data).catch( (e) => { console.log(e); } );
 
 console.log(result);  // Don’t judge a book by its cover.
 ```
@@ -133,9 +131,9 @@ console.log(result);  // Don’t judge a book by its cover.
 ### Parameters
 
 ```javascript
-AT.render(data, options, functions)
+AT.run(data, options, functions)
 
-AT.render(template, data, options, functions)
+AT.run(template, data, options, functions)
 ```
  Parameter | Required | Type 
  --- | --- | ---
