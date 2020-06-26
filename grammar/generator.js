@@ -1,5 +1,5 @@
 /**
- * Lib "all-templates"
+ * Lib "Lenka"
  * parser generator
  *
  * by Alex Paschenko <past.first@gmail.com>

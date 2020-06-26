@@ -1,5 +1,5 @@
 /**
- * Lib "all-templates"
+ * Lib "Lenka"
  * Entry point
  *
  * by Alex Paschenko <past.first@gmail.com>

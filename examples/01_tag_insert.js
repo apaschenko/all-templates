@@ -1,5 +1,5 @@
 /**
- * Lib "all-templates"
+ * Lib "Lenka"
  * Examples
  *
  * by Alex Paschenko <past.first@gmail.com>
@@ -15,14 +15,14 @@ const AT = require('../index');
  * example1: Inserting from the data
  * @returns {Promise<*>}
  */
-async function example1() {
+async function example() {
     const result =  await AT.run(
         {
-            start:
-                '{{`per cent`.twenty}} per cent of {{ nums.even[5] }} is {{`per cent`.twenty * 0.01 * nums.even[5]}}',
-            'per cent': {
-                ten: 10,
-                twenty: 20
+            start: '{{partOf.`20 per cent`}} per cent of '
+                +'{{ nums.even[5] }} is {{partOf.`20 per cent` * 0.01 * nums.even[5]}}',
+            partOf: {
+                ablValue: 10,
+                '20 per cent': 20
             },
             nums: {
                 even: [0, 2, 4, 6, 8, 10, 12, 14, 16],
@@ -34,21 +34,5 @@ async function example1() {
     console.log(`Result 1: "${result}"`);
 }
 
-/**
- * example2: Second form - AT.run(data<Object> [, options<Object>]);
- * @returns {Promise<*>}
- */
-async function example2() {
-    const result = await AT.run(
-        {
-            'start': "Hello, {{ who  # It's a target of the greeting }}!",
-            'who': 'WORLD',
-        }
-    );
-
-    console.log(`Result 2: "${result}"`);
-}
-
 Promise.resolve()
-    .then(example1)
-    .then(example2);
+    .then(example);

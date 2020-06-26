@@ -12,16 +12,14 @@
 const AT = require('../index');
 
 /**
- * example1: First form - AT.run(startLayer<String>, data<Object> [, options<Object>]);
+ * example1: Tag Unless
  * @returns {Promise<*>}
  */
 async function example1() {
-    let start = "Hello, {{ who  # It's a target of the greeting }}!";
-
     const result =  await AT.run(
-        start,
         {
-            'who': 'WORLD',
+            start: 'Comparisons are {{unless author != "Shakespeare"}} odious{{else}} odorous{{end}}.',
+            author: 'Shakespeare'
         }
     );
 
@@ -29,19 +27,20 @@ async function example1() {
 }
 
 /**
- * example2: Second form - AT.run(data<Object> [, options<Object>]);
- * @returns {Promise<*>}
- */
+* example1: Tag Unless
+* @returns {Promise<*>}
+*/
 async function example2() {
-    const result = await AT.run(
+    const result =  await AT.run(
         {
-            'start': "Hello, {{ who  # It's a target of the greeting }}!",
-            'who': 'WORLD',
+            start: 'Money {{unless actionKey < 12}}talks.{{else}}plays?{{end}}',
+            actionKey: 18
         }
     );
 
     console.log(`Result 2: "${result}"`);
 }
+
 
 Promise.resolve()
     .then(example1)

@@ -244,8 +244,8 @@ TagIf =
 		    return {
 		        type: 'tag_if',
 		        value: open.value,
-		        truePath: truePath || [],
-		        falsePath: falsePath && falsePath.layer || [],
+		        truePath: truePath || null,
+		        falsePath: falsePath || null,
 		        txt
             }
         }
@@ -268,8 +268,8 @@ TagUnless =
     	    return {
     	        type: 'tag_if',
     	        value: open.value,
-    	        truePath: truePath && truePath.value || [],
-    	        falsePath: falsePath || [],
+    	        truePath: truePath || null,
+    	        falsePath: falsePath || null,
     	        txt
             }
         }
@@ -368,7 +368,7 @@ EndPart =
 ElsePart =
     txt:(Open __ "ELSE"i __ Comment? Close { return text(); })
     layer: Layer?
-        { return {layer, txt} }
+        { return { ...layer, txt} }
 
 LineContinuation
   = ESCAPE_SYMBOL LineTerminatorSequence { return ""; }

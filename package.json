@@ -37,7 +37,7 @@
     "chai": "^4.2.0",
     "mocha": "^8.0.1",
     "pegjs": "^0.10.0",
-    "prysm": "^0.1.16"
+    "prismjs": "^1.20.0"
   },
   "dependencies": {}
 }
