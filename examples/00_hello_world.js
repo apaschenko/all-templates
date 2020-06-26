@@ -12,7 +12,15 @@
 const AT = require('../index');
 
 /**
- * example1: First form - AT.run(startLayer<String>, data<Object> [, options<Object>]);
+ * Example 1
+ * "Old-school" library call form:
+ * The starting layer is placed in a separate (first) parameter of the function.
+ * Before starting, this initial layer will be added to the data (the second parameter).
+ * By default, the key name is "start"). If the data already had such a key, its value
+ * will be lost.
+ *
+ * AT.run(startLayer<String>, data<Object> [, options<Object>]);
+ *
  * @returns {Promise<*>}
  */
 async function example1() {
@@ -29,7 +37,10 @@ async function example1() {
 }
 
 /**
- * example2: Second form - AT.run(data<Object> [, options<Object>]);
+ * example2: Recommended library call form:
+ *
+ * AT.run(data<Object> [, options<Object>]);
+ *
  * @returns {Promise<*>}
  */
 async function example2() {
