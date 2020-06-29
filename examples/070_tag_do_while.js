@@ -9,7 +9,8 @@ const AT = require('../index');
 async function example() {
     const result =  await AT.run(
         {
-            start: '{{SET i=0}}{{ DO }}{{i}} {{WHILE (i++, i < 5)}}{{END}}'
+            start: '{{ DO }}{{i}} {{WHILE (i++ < 5)}}{{END}}',
+            i: 0
         }
     );
 

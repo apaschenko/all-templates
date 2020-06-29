@@ -16,7 +16,7 @@ const parser = peg.generate(
     grammar.toString(),
     {
         output: 'source',
-        trace: true,
+        // trace: true,
         optimize: 'speed',
         format: 'commonjs',
         allowedStartRules: ['Start', 'PointerGet', 'Layer']

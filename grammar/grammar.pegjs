@@ -106,16 +106,16 @@ Lexeme =
 
 Expression =
     ExprBracketsPr20
+    / ExprBinaryGetPr15     // An order is matter!
+    / ExprBinaryGetPr14     // All BinaryGets must be preceded other expression types because
+    / ExprBinaryGetPr13     // Unary Getters/Setters can been a left part of Binary Getters
+    / ExprBinaryGetPr11     //
+    / ExprBinaryGetPr10     //
+    / ExprBinaryGetPr6      //
+    / ExprBinaryGetPr5      //
    	/ ExprPostfixUnarySetPr17
 	/ ExprPrefixUnarySetPr16
 	/ ExprPrefixUnaryGet16
-	/ ExprBinaryGetPr15
-	/ ExprBinaryGetPr14
-	/ ExprBinaryGetPr13
-	/ ExprBinaryGetPr11
-	/ ExprBinaryGetPr10
-	/ ExprBinaryGetPr6
-	/ ExprBinaryGetPr5
 	/ ExprBinarySetPr3
     / ExprBinaryGetSetPr3
     / Literal
