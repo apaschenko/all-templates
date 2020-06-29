@@ -1,18 +1,9 @@
-/**
- * Lib "Lenka"
- * Examples
- *
- * by Alex Paschenko <past.first@gmail.com>
- * GPL-3.0
- */
-
-
 'use strict';
 
 const AT = require('../index');
 
 /**
- * example1: Inserting from the data
+ * Inserting from the data
  * @returns {Promise<*>}
  */
 async function example() {
@@ -31,7 +22,7 @@ async function example() {
         }
     );
 
-    console.log(`Result 1: "${result}"`);
+    console.log(result);
 }
 
 Promise.resolve()

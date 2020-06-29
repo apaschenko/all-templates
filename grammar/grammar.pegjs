@@ -49,7 +49,7 @@ RawText = txt: $ (!Open .)+ { return {type: 'text', value: txt } }
 
 
 PointerGet =
-	partial: "~"?
+	partial: "*"?
 	isLocalVar: "@"?
 	first: PointerGetPart
 	tail: (
@@ -104,48 +104,93 @@ Lexeme =
 		{return {type: 'regular', value: lex}}
 
 
-BracketsExpr = "(" __ expr:Expression __ ")"
-    { return expr }
-
-
 Expression =
-	ExprBinaryGet
-	/ ExprPrefixUnaryGet
-	/ ExprBinarySet
-	/ ExprBinaryGetSet
-	/ ExprPrefixUnarySet
-	/ ExprPostfixUnarySet
-    / BracketsExpr
+    ExprBracketsPr20
+   	/ ExprPostfixUnarySetPr17
+	/ ExprPrefixUnarySetPr16
+	/ ExprPrefixUnaryGet16
+	/ ExprBinaryGetPr15
+	/ ExprBinaryGetPr14
+	/ ExprBinaryGetPr13
+	/ ExprBinaryGetPr11
+	/ ExprBinaryGetPr10
+	/ ExprBinaryGetPr6
+	/ ExprBinaryGetPr5
+	/ ExprBinarySetPr3
+    / ExprBinaryGetSetPr3
     / Literal
     / PointerGet
 
+ExprLeftPart = ExprBracketsPr20 / ExprPostfixUnarySetPr17 / ExprPrefixUnarySetPr16 / Literal / PointerGet 
 
-ExprBinaryGet =
-    left:(BracketsExpr / Literal / PointerGet) __ operator:OpBinaryGetter __ right:Expression
-        { return {type: 'expression', sources: ['left', 'right'], left, right, operator} }
+ExprBracketsPr20 = LEFT_PARENTHESIS __ expr:Expression __ RIGHT_PARENTHESIS
+    { return expr }
 
-ExprPrefixUnaryGet =
-    operator:OpPrefixUnaryGetter __ right:Expression
-        { return {type: 'expression', sources: ['right'], right, operator} }
-
-ExprBinarySet =
-    left:PointerSet __ operator:OpBinarySetter __ right:Expression
- 		{ return {type: 'expression', sources: ['right'], left, right, operator} }
-
-ExprBinaryGetSet =
-    operator:OpBinaryGetterSetter __ right:PointerSet
-    	{ return {type: 'expression', sources: ['left', 'right'], right, operator} }
-
-ExprPrefixUnarySet =
-    operator:OpPrefixUnarySetter __ right:PointerSet
-    	{ return {type: 'expression', sources: ['right'], right, operator} }
-
-ExprPostfixUnarySet =
-    left:PointerSet __ operator:OpPostfixUnarySetter
+ExprPostfixUnarySetPr17 =
+    left:PointerSet __ operator:OpPostfixUnarySetterPr17
     	{ return {type: 'expression', sources: ['left'], left, operator} }
 
+ExprPrefixUnaryGet16 =
+    operator:OpPrefixUnaryGetterPr16 __ right:Expression
+        { return {type: 'expression', sources: ['right'], right, operator} }
+
+ExprPrefixUnarySetPr16 =
+    operator:OpPrefixUnarySetterPr16 __ right:PointerSet
+    	{ return {type: 'expression', sources: ['right'], right, operator} }
+
+ExprBinaryGetPr15 =
+    left:ExprLeftPart
+    __ operator:OpBinaryGetterPr15 __
+    right:Expression
+        { return {type: 'expression', sources: ['left', 'right'], left, right, operator} }
+
+ExprBinaryGetPr14 =
+    left:ExprLeftPart
+    __ operator:OpBinaryGetterPr14 __
+    right:Expression
+        { return {type: 'expression', sources: ['left', 'right'], left, right, operator} }
+
+ExprBinaryGetPr13 =
+    left:ExprLeftPart
+    __ operator:OpBinaryGetterPr13 __
+    right:Expression
+        { return {type: 'expression', sources: ['left', 'right'], left, right, operator} }
+
+ExprBinaryGetPr11 =
+    left:ExprLeftPart
+    __ operator:OpBinaryGetterPr11 __
+    right:Expression
+        { return {type: 'expression', sources: ['left', 'right'], left, right, operator} }
+
+ExprBinaryGetPr10 =
+    left:ExprLeftPart
+    __ operator:OpBinaryGetterPr10 __
+    right:Expression
+        { return {type: 'expression', sources: ['left', 'right'], left, right, operator} }
+
+ExprBinaryGetPr6 =
+    left:ExprLeftPart
+    __ operator:OpBinaryGetterPr6 __
+    right:Expression
+        { return {type: 'expression', sources: ['left', 'right'], left, right, operator} }
+
+ExprBinaryGetPr5 =
+    left:ExprLeftPart
+    __ operator:OpBinaryGetterPr5 __
+    right:Expression
+        { return {type: 'expression', sources: ['left', 'right'], left, right, operator} }
+
+ExprBinarySetPr3 =
+    left:PointerSet __ operator:OpBinarySetterPr3 __ right:Expression
+ 		{ return {type: 'expression', sources: ['right'], left, right, operator} }
+
+ExprBinaryGetSetPr3 =
+    operator:OpBinaryGetterSetterPr3 __ right:PointerSet
+    	{ return {type: 'expression', sources: ['left', 'right'], right, operator} }
+
+
 MultiExpression =
-    "(" first:Expression tail:(__ "," __ arg:Expression {return arg;})* ")"
+    LEFT_PARENTHESIS first:Expression tail:(__ "," __ arg:Expression {return arg;})* RIGHT_PARENTHESIS
     	{
             const arr = [first];
             for (let i of tail) {
@@ -162,24 +207,32 @@ MultiExpression =
             return  {type: 'multi_expression', value:arr};
         }
 
-OpBinaryGetter = "===" / "!==" / "==" / "!=" /  "<"
-	/ "<=" / ">" / ">=" / "%" / OpAnd / OpOr / "+" / "-" / "*" / "/"
 
-OpBinarySetter = "="
+OpPostfixUnarySetterPr17 = op:("++" / "--") {return 'postfix ' + op}
 
-OpBinaryGetterSetter = "+=" / "-="
+OpPrefixUnaryGetterPr16 = op:(("+" ! "++") / ("-" ! "--") / OpNotPr16) {return 'prefix ' + op}
 
-OpPrefixUnaryGetter = op:("+" / "-" / OpNot) {return 'prefix ' + op}
+OpPrefixUnarySetterPr16 = op:("++" / "--" / "~") {return 'prefix ' + op}
 
-OpPrefixUnarySetter = op:("++" / "--") {return 'prefix ' + op}
+OpNotPr16 = "!" ! "!=" {return '!'} / _ "NOT"i _ {return '!'}
 
-OpPostfixUnarySetter = op:("++" / "--") {return 'postfix ' + op}
+OpBinaryGetterPr15 = "**"
 
-OpAnd = "&&" {return '&&'} / _ "AND"i _ {return '&&'}
+OpBinaryGetterPr14 = "*" ! ("**" / "*=") / "/" ! "/=" / "%"
 
-OpOr = "||" {return '||'} / _ "OR"i _ {return '||'}
+OpBinaryGetterPr13 = "+" ! ("++" / "--") / "-" ! ("--" / "-=")
 
-OpNot = "!" {return '!'} / _ "NOT"i _ {return '!'}
+OpBinaryGetterPr11 = "<=" / ">=" / "<" / ">"
+
+OpBinaryGetterPr10 = "===" / "!==" / "==" / "!="
+
+OpBinaryGetterPr6 = "&&" {return '&&'} / _ "AND"i _ {return '&&'}
+
+OpBinaryGetterPr5 = "||" {return '||'} / _ "OR"i _ {return '||'}
+
+OpBinarySetterPr3 = "=" ! "=="
+
+OpBinaryGetterSetterPr3 = "+=" / "-="
 
 
 Literal = StringLiteral / NumberLiteral
@@ -420,6 +473,8 @@ __
 _
   = BLANK+
 
+LEFT_PARENTHESIS = "("
+RIGHT_PARENTHESIS = ")"
 ESCAPE_SYMBOL = '\\'
 HASH = "#"
 DOT = "."
