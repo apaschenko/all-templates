@@ -23,8 +23,21 @@ const targetDir = '../docs/examples';
 
 const filesNames = fs.readdirSync(scanDir);
 
-var NEW_LINE_EXP = /\n(?!$)/g;
-var lineNumbersWrapper;
+const NEW_LINE_EXP = /\n(?!$)/g;
+let lineNumbersWrapper;
+
+const prefix = `<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+    <title>Lenka Example</title>
+    <link rel="stylesheet" href="../assets/prism.css">
+    <link rel="stylesheet" href="../assets/prism-ln.css">
+</head>
+<body>
+<pre></code>`;
+
+const suffix = `\n</code></pre></body></html>`;
 
 Prism.hooks.add('after-tokenize', function (env) {
     var match = env.code.match(NEW_LINE_EXP);
@@ -73,5 +86,5 @@ for (let fileName of filesNames) {
 //         .join('\n') + '</table>';
 
 
-    fs.writeFileSync(path.join(targetDir, `${path.parse(fileName).name}.html`), highlighted);
+    fs.writeFileSync(path.join(targetDir, `${path.parse(fileName).name}.html`), prefix+highlighted+suffix);
 }

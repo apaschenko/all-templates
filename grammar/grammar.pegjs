@@ -105,100 +105,82 @@ Lexeme =
 
 
 Expression =
-    ExprBracketsPr20
-    / ExprBinaryGetPr15     // An order is matter!
+      ExprBinaryGetPr15     // An order is matter!
     / ExprBinaryGetPr14     // All BinaryGets must be preceded other expression types because
     / ExprBinaryGetPr13     // Unary Getters/Setters can been a left part of Binary Getters
     / ExprBinaryGetPr11     //
     / ExprBinaryGetPr10     //
     / ExprBinaryGetPr6      //
     / ExprBinaryGetPr5      //
-   	/ ExprPostfixUnarySetPr17
-	/ ExprPrefixUnarySetPr16
 	/ ExprPrefixUnaryGet16
 	/ ExprBinarySetPr3
     / ExprBinaryGetSetPr3
+    / ExprBracketsPr20
     / Literal
     / PointerGet
 
-ExprLeftPart = ExprBracketsPr20 / ExprPostfixUnarySetPr17 / ExprPrefixUnarySetPr16 / Literal / PointerGet 
+ExprGetLeftPart = ExprBracketsPr20 / Literal / PointerGet
 
-ExprBracketsPr20 = LEFT_PARENTHESIS __ expr:Expression __ RIGHT_PARENTHESIS
+ExprBracketsPr20 = LEFT_PARENTHESIS __ expr:MultiExpression __ RIGHT_PARENTHESIS
     { return expr }
-
-ExprPostfixUnarySetPr17 =
-    left:PointerSet __ operator:OpPostfixUnarySetterPr17
-    	{ return {type: 'expression', sources: ['left'], left, operator} }
 
 ExprPrefixUnaryGet16 =
     operator:OpPrefixUnaryGetterPr16 __ right:Expression
         { return {type: 'expression', sources: ['right'], right, operator} }
 
-ExprPrefixUnarySetPr16 =
-    operator:OpPrefixUnarySetterPr16 __ right:PointerSet
-    	{ return {type: 'expression', sources: ['right'], right, operator} }
-
 ExprBinaryGetPr15 =
-    left:ExprLeftPart
+    left:ExprGetLeftPart
     __ operator:OpBinaryGetterPr15 __
     right:Expression
         { return {type: 'expression', sources: ['left', 'right'], left, right, operator} }
 
 ExprBinaryGetPr14 =
-    left:ExprLeftPart
+    left:ExprGetLeftPart
     __ operator:OpBinaryGetterPr14 __
     right:Expression
         { return {type: 'expression', sources: ['left', 'right'], left, right, operator} }
 
 ExprBinaryGetPr13 =
-    left:ExprLeftPart
+    left:ExprGetLeftPart
     __ operator:OpBinaryGetterPr13 __
     right:Expression
         { return {type: 'expression', sources: ['left', 'right'], left, right, operator} }
 
 ExprBinaryGetPr11 =
-    left:ExprLeftPart
+    left:ExprGetLeftPart
     __ operator:OpBinaryGetterPr11 __
     right:Expression
         { return {type: 'expression', sources: ['left', 'right'], left, right, operator} }
 
 ExprBinaryGetPr10 =
-    left:ExprLeftPart
+    left:ExprGetLeftPart
     __ operator:OpBinaryGetterPr10 __
     right:Expression
         { return {type: 'expression', sources: ['left', 'right'], left, right, operator} }
 
 ExprBinaryGetPr6 =
-    left:ExprLeftPart
+    left:ExprGetLeftPart
     __ operator:OpBinaryGetterPr6 __
     right:Expression
-        { return {type: 'expression', sources: ['left', 'right'], left, right, operator} }
+        { return {type: 'expression', sources: ['left'], left, right, operator} }
 
 ExprBinaryGetPr5 =
-    left:ExprLeftPart
+    left:ExprGetLeftPart
     __ operator:OpBinaryGetterPr5 __
     right:Expression
-        { return {type: 'expression', sources: ['left', 'right'], left, right, operator} }
+        { return {type: 'expression', sources: ['left'], left, right, operator} }
 
 ExprBinarySetPr3 =
     left:PointerSet __ operator:OpBinarySetterPr3 __ right:Expression
  		{ return {type: 'expression', sources: ['right'], left, right, operator} }
 
 ExprBinaryGetSetPr3 =
-    operator:OpBinaryGetterSetterPr3 __ right:PointerSet
-    	{ return {type: 'expression', sources: ['left', 'right'], right, operator} }
+    left:PointerSet __ operator:OpBinaryGetterSetterPr3 __ right:Expression
+    	{ return {type: 'expression', sources: ['left', 'right'], left, right, operator} }
 
 
 MultiExpression =
-    LEFT_PARENTHESIS first:Expression tail:(__ "," __ arg:Expression {return arg;})* RIGHT_PARENTHESIS
-    	{
-            const arr = [first];
-            for (let i of tail) {
-                arr.push(i)
-            };
-            return {type: 'multi_expression', value:arr};
-        }
-	/ first:Expression tail:(__ "," __ arg:Expression {return arg;})*
+    first:Expression tail:(__ "," __ arg:Expression {return arg;})*
     	{
             const arr = [first];
             for (let i of tail) {
@@ -208,19 +190,23 @@ MultiExpression =
         }
 
 
-OpPostfixUnarySetterPr17 = op:("++" / "--") {return 'postfix ' + op}
+OpPrefixUnaryGetterPr16 = op:("+" / "-" / OpNotPr16) { return `unary ${op}` }
 
-OpPrefixUnaryGetterPr16 = op:(("+" ! "++") / ("-" ! "--") / OpNotPr16) {return 'prefix ' + op}
-
-OpPrefixUnarySetterPr16 = op:("++" / "--" / "~") {return 'prefix ' + op}
-
-OpNotPr16 = "!" ! "!=" {return '!'} / _ "NOT"i _ {return '!'}
+OpNotPr16 = ! "!=" "!" {return '!'} / _ "NOT"i _ {return '!'}
 
 OpBinaryGetterPr15 = "**"
 
-OpBinaryGetterPr14 = "*" ! ("**" / "*=") / "/" ! "/=" / "%"
+OpBinaryGetterPr14 = OpMultiPr14 / OpDivPr14
 
-OpBinaryGetterPr13 = "+" ! ("++" / "--") / "-" ! ("--" / "-=")
+OpMultiPr14 = ! ("**" / "*=") "*" { return "*"; }
+
+OpDivPr14 = ! "/=" "/" { return "/"; }
+
+OpBinaryGetterPr13 = OpPlusPr13 / OpMinusPr13
+
+OpPlusPr13 = ! "+=" "+" { return "+"; }
+
+OpMinusPr13 = ! "-=" "-" { return "-"; }
 
 OpBinaryGetterPr11 = "<=" / ">=" / "<" / ">"
 
@@ -230,7 +216,7 @@ OpBinaryGetterPr6 = "&&" {return '&&'} / _ "AND"i _ {return '&&'}
 
 OpBinaryGetterPr5 = "||" {return '||'} / _ "OR"i _ {return '||'}
 
-OpBinarySetterPr3 = "=" ! "=="
+OpBinarySetterPr3 = ! "==" "=" { return "="; }
 
 OpBinaryGetterSetterPr3 = "+=" / "-="
 
@@ -279,7 +265,7 @@ Tag = TagIf
     / TagFor
     / TagEach
     / TagWhile
-    / TagDoWhile
+    // TagDoWhile
     / TagSet
     / TagEmpty
 
@@ -400,11 +386,12 @@ TagWhile =
 	end: EndPart
 		{ return {type: 'tag_while', expression: open.expr, layer, txt: [open.txt, end]} }
 
-TagDoWhile =
+/* TagDoWhile =
     open: (Open __ KEY_DO __ Comment? Close { return text(); })
     layer: Layer
 	whilePart: (Open __ KEY_WHILE _ expr:MultiExpression __ Comment? Close { return {expr, txt: text()} })
 		{ return {type: 'tag_do_while', expression: whilePart.expr, layer, txt: [open, whilePart.txt]} }
+*/
 
 TagSet =
     Open __ KEY_SET _ expression:MultiExpression __ Comment? Close

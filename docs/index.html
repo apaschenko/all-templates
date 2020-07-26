@@ -2,9 +2,44 @@
         "http://www.w3.org/TR/html4/loose.dtd">
 <html>
 <head>
-    <title>Title</title>
+    <title>Lenka</title>
+    <link rel="shortcut icon" href="./favicon.ico" type="image/x-icon">
+    <link rel="icon" href="./favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="./assets/styles.css">
 </head>
 <body>
-    <h2></h2>
+    <h1 class="title">Lenka</h1>
+    <h3 class="subtitle">Fast, powerful, universal, intuitive templates processing library.</h3>
+    <table>
+        <tr><td>Nested layers / Partials</td><td><img class="checkmark" src="./assets/checkmark.png"></td></tr>
+        <tr><td>Conditional rendering (if, unless)</td><td><img class="checkmark" src="./assets/checkmark.png"></td></tr>
+        <tr><td>Loops (for, each, while, do-while)</td><td><img class="checkmark" src="./assets/checkmark.png"></td></tr>
+        <tr><td>Local Variables</td><td><img class="checkmark" src="./assets/checkmark.png"></td></tr>
+        <tr><td>Functions</td><td><img class="checkmark" src="./assets/checkmark.png"></td></tr>
+        <tr><td>Classes</td><td>in the next release</td></tr>
+    </table>
+    <h2>Quick introduction</h2>
+    <h3>Installation</h3>
+    <pre>npm install lenka --save</pre>
+    <h3>Usage</h3>
+    <p>The basic unit for the Lenka library is a layer.</p>
+    <p>The layer is a collection of pieces of text and tags:</p>
+    <img class="block-illustration" src="./assets/tag1.png"/>
+    <p>Each part of tag opens with the characters <span class="inline-code">"{{"</span> and closes
+        with the characters <span class="inline-code">"}}"</span>. A part of the tag has a body
+        (can be empty), and may also contains a comment (if a comment presents, it starts with the
+    <span class="inline-code">"#"</span> and continues to the end of the tag part):</p>
+    <img class="block-illustration" src="assets/tag2.png"/>
+    <p>Main entry point of Lenka library is async. function "run" (see example below)</p>
+    <p>This function should be called with one mandatory parameter "data" and optional
+    second parameter "options":</p>
+    <iframe src="examples/001_hello_world_second_form.html"></iframe>
+    <h4>Tag types:</h4>
+    <ul>
+        <li><a href="#tag_insert">Insert</a></li>
+
+    </ul>
+    <a name="tag_insert"> </a><h4>Tag Insert</h4>
+    <iframe src="examples/010_tag_insert.html"></iframe>
 </body>
 </html>

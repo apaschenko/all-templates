@@ -1,0 +1,32 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+    <title>Lenka Example</title>
+    <link rel="stylesheet" href="../assets/prism.css">
+    <link rel="stylesheet" href="../assets/prism-ln.css">
+</head>
+<body>
+<pre></code><span class="token string">'use strict'</span><span class="token punctuation">;</span>
+
+<span class="token keyword">const</span> <span class="token constant">AT</span> <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'../index'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment">/**
+* Tag Unless
+* @returns {Promise&lt;*>}
+*/</span>
+<span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">example</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> result <span class="token operator">=</span>  <span class="token keyword">await</span> <span class="token constant">AT</span><span class="token punctuation">.</span><span class="token function">run</span><span class="token punctuation">(</span>
+        <span class="token punctuation">{</span>
+            start<span class="token operator">:</span> <span class="token string">'Money {{unless actionKey &lt; 12}}talks.{{else}}plays?{{end}}'</span><span class="token punctuation">,</span>
+            actionKey<span class="token operator">:</span> <span class="token number">18</span>
+        <span class="token punctuation">}</span>
+    <span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>result<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+
+Promise<span class="token punctuation">.</span><span class="token function">resolve</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span><span class="token function">then</span><span class="token punctuation">(</span>example<span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre></body></html>

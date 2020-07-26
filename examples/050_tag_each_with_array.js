@@ -9,7 +9,7 @@ const AT = require('../index');
 async function example() {
     const result =  await AT.run(
         {
-            start: 'Days of the week are:{{ EACH day OF daysOfTheWeek }} {{ day.key }}:"{{ day.value }}"{{ END }}.',
+            start: 'Days of the week are -{{ EACH day OF daysOfTheWeek }} {{ day.key }}:"{{ day.value }}"{{ END }}.',
             daysOfTheWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
         }
     );

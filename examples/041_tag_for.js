@@ -9,7 +9,7 @@ const AT = require('../index');
 async function example() {
     const result =  await AT.run(
         {
-            start: '{{ FOR num=2; num<5; num++ }}"{{ number.odd[num] }}", {{ END }}... all these are odd numbers.',
+            start: '{{ FOR index=2; index<5; index+=1 }}"{{ number.odd[index] }}", {{ END }}... all these are odd numbers.',
             number: {
                 even: [0, 2, 4, 6, 8, 10, 12],
                 odd: [1, 3, 5, 7, 9, 11, 13, 15]
